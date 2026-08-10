@@ -2,6 +2,7 @@
   "ef_db_interception_usages": [
     {
       "cardinality": {
+        "explanation": "Legacy DbInterception usage. Migrate to EF Core Interceptors.",
         "filepath": "input.cs",
         "linenumber": "22"
       },
@@ -11,6 +12,7 @@
   "ef_dbconfiguration_usages": [
     {
       "cardinality": {
+        "explanation": "Legacy DbConfiguration usage. Code-based configuration must be moved to DbContext.OnConfiguring or DI.",
         "filepath": "input.cs",
         "linenumber": "27"
       },
@@ -20,6 +22,7 @@
   "ef_dbcontext_usages": [
     {
       "cardinality": {
+        "explanation": "EF DbContext usage found. Verify compatibility with EF Core.",
         "filepath": "input.cs",
         "linenumber": "11"
       },
@@ -29,6 +32,7 @@
   "ef_dbset_usages": [
     {
       "cardinality": {
+        "explanation": "EF DbSet usage found. Verify compatibility with EF Core.",
         "filepath": "input.cs",
         "linenumber": "14"
       },
@@ -38,6 +42,7 @@
   "ef_entity_type_configuration_usages": [
     {
       "cardinality": {
+        "explanation": "Legacy EntityTypeConfiguration usage. Migrate to IEntityTypeConfiguration in EF Core.",
         "filepath": "input.cs",
         "linenumber": "26"
       },
@@ -47,6 +52,7 @@
   "ef_execute_sql_command_usages": [
     {
       "cardinality": {
+        "explanation": "Raw SQL execution. Migrate to ExecuteSqlRaw or ExecuteSqlInterpolated in EF Core.",
         "filepath": "input.cs",
         "linenumber": "20"
       },
@@ -56,6 +62,7 @@
   "ef_execute_sql_query_usages": [
     {
       "cardinality": {
+        "explanation": "Raw SQL query execution. Migrate to FromSqlRaw or FromSqlInterpolated in EF Core.",
         "filepath": "input.cs",
         "linenumber": "21"
       },
@@ -65,6 +72,7 @@
   "ef_idbset_usages": [
     {
       "cardinality": {
+        "explanation": "Legacy IDbSet usage. Migrate to DbSet in EF Core.",
         "filepath": "input.cs",
         "linenumber": "13"
       },
@@ -74,6 +82,7 @@
   "ef_objectcontext_usages": [
     {
       "cardinality": {
+        "explanation": "Legacy EF6 ObjectContext usage. Migrate to EF Core DbContext.",
         "filepath": "input.cs",
         "linenumber": "9"
       },
@@ -83,6 +92,7 @@
   "ef_set_initializer_usages": [
     {
       "cardinality": {
+        "explanation": "Database initializer usage. EF Core does not support Database.SetInitializer. Migrate to explicitly creating the database.",
         "filepath": "input.cs",
         "linenumber": "19"
       },
@@ -92,6 +102,7 @@
   "ef_virtual_nav_props": [
     {
       "cardinality": {
+        "explanation": "Virtual property detected. Check if this is for lazy loading, which requires Microsoft.EntityFrameworkCore.Proxies in EF Core.",
         "filepath": "input.cs",
         "linenumber": "15"
       },

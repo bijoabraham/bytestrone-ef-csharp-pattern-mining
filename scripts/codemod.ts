@@ -44,60 +44,60 @@ const codemod: Codemod<CSharp> = async (root) => {
 
   // --- ObjectContext usages ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^ObjectContext$" } })) {
-    objectContextUsages.increment({ filepath, linenumber: lineNumber(node) });
+    objectContextUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "Legacy EF6 ObjectContext usage. Migrate to EF Core DbContext." });
   }
 
   // --- DbContext usages ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^DbContext$" } })) {
-    dbContextUsages.increment({ filepath, linenumber: lineNumber(node) });
+    dbContextUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "EF DbContext usage found. Verify compatibility with EF Core." });
   }
 
   // --- IDbSet<T> usages ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^IDbSet$" } })) {
-    idbSetUsages.increment({ filepath, linenumber: lineNumber(node) });
+    idbSetUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "Legacy IDbSet usage. Migrate to DbSet in EF Core." });
   }
 
   // --- DbSet<T> usages ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^DbSet$" } })) {
-    dbSetUsages.increment({ filepath, linenumber: lineNumber(node) });
+    dbSetUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "EF DbSet usage found. Verify compatibility with EF Core." });
   }
 
   // --- EntityTypeConfiguration<T> usages ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^EntityTypeConfiguration$" } })) {
-    entityTypeConfigurationUsages.increment({ filepath, linenumber: lineNumber(node) });
+    entityTypeConfigurationUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "Legacy EntityTypeConfiguration usage. Migrate to IEntityTypeConfiguration in EF Core." });
   }
 
   // --- DbConfiguration usages ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^DbConfiguration$" } })) {
-    dbConfigurationUsages.increment({ filepath, linenumber: lineNumber(node) });
+    dbConfigurationUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "Legacy DbConfiguration usage. Code-based configuration must be moved to DbContext.OnConfiguring or DI." });
   }
 
   // --- Database.ExecuteSqlCommand ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^ExecuteSqlCommand$" } })) {
-    executeSqlCommandUsages.increment({ filepath, linenumber: lineNumber(node) });
+    executeSqlCommandUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "Raw SQL execution. Migrate to ExecuteSqlRaw or ExecuteSqlInterpolated in EF Core." });
   }
 
   // --- Database.SqlQuery<T> ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^SqlQuery$" } })) {
-    executeSqlQueryUsages.increment({ filepath, linenumber: lineNumber(node) });
+    executeSqlQueryUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "Raw SQL query execution. Migrate to FromSqlRaw or FromSqlInterpolated in EF Core." });
   }
 
   // --- Database.SetInitializer ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^SetInitializer$" } })) {
-    setInitializerUsages.increment({ filepath, linenumber: lineNumber(node) });
+    setInitializerUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "Database initializer usage. EF Core does not support Database.SetInitializer. Migrate to explicitly creating the database." });
   }
 
   // --- Virtual navigation properties ---
   for (const node of rootNode.findAll({ rule: { kind: "modifier", regex: "^virtual$" } })) {
     // Only count if it's within a property declaration
     if (node.parent()?.kind() === "property_declaration") {
-      virtualNavProps.increment({ filepath, linenumber: lineNumber(node) });
+      virtualNavProps.increment({ filepath, linenumber: lineNumber(node), explanation: "Virtual property detected. Check if this is for lazy loading, which requires Microsoft.EntityFrameworkCore.Proxies in EF Core." });
     }
   }
 
   // --- DbInterception.Add ---
   for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^DbInterception$" } })) {
-    dbInterceptionUsages.increment({ filepath, linenumber: lineNumber(node) });
+    dbInterceptionUsages.increment({ filepath, linenumber: lineNumber(node), explanation: "Legacy DbInterception usage. Migrate to EF Core Interceptors." });
   }
 
   return null;
