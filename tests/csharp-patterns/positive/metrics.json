@@ -1,0 +1,101 @@
+{
+  "ef_db_interception_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "22"
+      },
+      "count": 1
+    }
+  ],
+  "ef_dbconfiguration_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "27"
+      },
+      "count": 1
+    }
+  ],
+  "ef_dbcontext_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "11"
+      },
+      "count": 1
+    }
+  ],
+  "ef_dbset_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "14"
+      },
+      "count": 1
+    }
+  ],
+  "ef_entity_type_configuration_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "26"
+      },
+      "count": 1
+    }
+  ],
+  "ef_execute_sql_command_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "20"
+      },
+      "count": 1
+    }
+  ],
+  "ef_execute_sql_query_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "21"
+      },
+      "count": 1
+    }
+  ],
+  "ef_idbset_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "13"
+      },
+      "count": 1
+    }
+  ],
+  "ef_objectcontext_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "9"
+      },
+      "count": 1
+    }
+  ],
+  "ef_set_initializer_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "19"
+      },
+      "count": 1
+    }
+  ],
+  "ef_virtual_nav_props": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "15"
+      },
+      "count": 1
+    }
+  ]
+}

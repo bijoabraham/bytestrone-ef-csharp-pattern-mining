@@ -1,228 +1,105 @@
 import type { Codemod } from "codemod:ast-grep";
-import type CSharp from "codemod:ast-grep/langs/c_sharp";
-import { setState, getState, acquireLock } from "codemod:workflow";
+import type CSharp from "codemod:ast-grep/langs/csharp";
+import { useMetricAtom } from "codemod:metrics";
 
-// ============================================================
-// Types
-// ============================================================
-interface BlockerRecord {
-  blockerType: string;
-  file: string;
-  severity: "critical" | "warning" | "info";
-}
-
-interface EntityRecord {
-  entityClass: string;
-  configurationClass: string;
-  file: string;
-  loc: number;
-}
-
-interface FileRecord {
-  file: string;
-  loc: number;
-  efPatternCount: number;
-  blockerCount: number;
-}
-
-interface ScanState {
-  totalCsFiles: number;
-  totalCsLoc: number;
-  efRelatedCsFiles: number;
-  efRelatedCsLoc: number;
-  dbContextSubclassCount: number;
-  objectContextUsageCount: number;
-  dbSetPropertyCount: number;
-  idbSetPropertyCount: number;
-  entityTypeConfigurationCount: number;
-  executeSqlCommandCount: number;
-  executeSqlQueryCount: number;
-  setInitializerCount: number;
-  virtualNavPropCount: number;
-  interceptorRegistrationCount: number;
-  dbConfigurationClassCount: number;
-  blockers: BlockerRecord[];
-  entities: EntityRecord[];
-  files: FileRecord[];
-}
-
-const EMPTY_STATE: ScanState = {
-  totalCsFiles: 0,
-  totalCsLoc: 0,
-  efRelatedCsFiles: 0,
-  efRelatedCsLoc: 0,
-  dbContextSubclassCount: 0,
-  objectContextUsageCount: 0,
-  dbSetPropertyCount: 0,
-  idbSetPropertyCount: 0,
-  entityTypeConfigurationCount: 0,
-  executeSqlCommandCount: 0,
-  executeSqlQueryCount: 0,
-  setInitializerCount: 0,
-  virtualNavPropCount: 0,
-  interceptorRegistrationCount: 0,
-  dbConfigurationClassCount: 0,
-  blockers: [],
-  entities: [],
-  files: [],
+type AstNode = {
+  kind(): string;
+  text(): string;
+  isNamed(): boolean;
+  range(): { start: { line: number } };
+  field(name: string): AstNode | null | undefined;
+  children(): AstNode[];
+  getMatch(name: string): AstNode | null | undefined;
 };
 
-const STATE_KEY = "ef-csharp-scan";
-
-// ============================================================
-// AST pattern helpers
-// ============================================================
-function countPattern(rootNode: any, pattern: string): number {
-  try {
-    return rootNode.findAll({ rule: { pattern } }).length;
-  } catch {
-    return 0;
-  }
+function lineNumber(node: AstNode): string {
+  return String(node.range().start.line + 1);
 }
 
-function findAll(rootNode: any, pattern: string): any[] {
+const objectContextUsages = useMetricAtom("ef_objectcontext_usages");
+const dbContextUsages = useMetricAtom("ef_dbcontext_usages");
+const idbSetUsages = useMetricAtom("ef_idbset_usages");
+const dbSetUsages = useMetricAtom("ef_dbset_usages");
+const entityTypeConfigurationUsages = useMetricAtom("ef_entity_type_configuration_usages");
+const dbConfigurationUsages = useMetricAtom("ef_dbconfiguration_usages");
+const executeSqlCommandUsages = useMetricAtom("ef_execute_sql_command_usages");
+const executeSqlQueryUsages = useMetricAtom("ef_execute_sql_query_usages");
+const setInitializerUsages = useMetricAtom("ef_set_initializer_usages");
+const virtualNavProps = useMetricAtom("ef_virtual_nav_props");
+const dbInterceptionUsages = useMetricAtom("ef_db_interception_usages");
+
+function findAll(rootNode: any, pattern: string): AstNode[] {
   try {
-    return rootNode.findAll({ rule: { pattern } });
+    return rootNode.findAll({ rule: { pattern } }) as AstNode[];
   } catch {
     return [];
   }
 }
 
-// ============================================================
-// Main transform — read-only mining, always returns null
-// ============================================================
 const codemod: Codemod<CSharp> = async (root) => {
-  const filePath = root.filename();
-
-  if (!filePath.endsWith(".cs")) return null;
-
-  const source = root.source();
-  const loc = source
-    .split("\n")
-    .filter((l: string) => l.trim().length > 0 && !l.trim().startsWith("//"))
-    .length;
-
   const rootNode = root.root();
+  const filepath = root.relativeFilename();
 
-  let fileEfPatternCount = 0;
-  let fileBlockerCount = 0;
-  const fileBlockers: BlockerRecord[] = [];
-  const fileEntities: EntityRecord[] = [];
+  if (!filepath.endsWith(".cs")) return null;
 
-  // --- ObjectContext subclass ---
-  const objectContextNodes = findAll(rootNode, `class $NAME : ObjectContext`);
-  const objectContextCount = objectContextNodes.length;
-  if (objectContextCount > 0) {
-    fileBlockers.push({ blockerType: "ObjectContext subclass", file: filePath, severity: "critical" });
-    fileEfPatternCount += objectContextCount;
-    fileBlockerCount += objectContextCount;
+  // --- ObjectContext usages ---
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^ObjectContext$" } })) {
+    objectContextUsages.increment({ filepath, linenumber: lineNumber(node) });
   }
 
-  // --- DbContext subclass ---
-  const dbContextCount = countPattern(rootNode, `class $NAME : DbContext`);
-  fileEfPatternCount += dbContextCount;
-
-  // --- IDbSet<T> property ---
-  const idbSetCount = countPattern(rootNode, `public IDbSet<$T> $PROP { get; set; }`);
-  if (idbSetCount > 0) {
-    fileBlockers.push({ blockerType: "IDbSet<T> property", file: filePath, severity: "warning" });
-    fileEfPatternCount += idbSetCount;
-    fileBlockerCount += idbSetCount;
+  // --- DbContext usages ---
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^DbContext$" } })) {
+    dbContextUsages.increment({ filepath, linenumber: lineNumber(node) });
   }
 
-  // --- DbSet<T> property ---
-  const dbSetCount = countPattern(rootNode, `public DbSet<$T> $PROP { get; set; }`);
-  fileEfPatternCount += dbSetCount;
-
-  // --- EntityTypeConfiguration<T> (EF6) ---
-  const etcNodes = findAll(rootNode, `class $NAME : EntityTypeConfiguration<$T>`);
-  for (const node of etcNodes) {
-    const configClass = node.getMatch("NAME")?.text() ?? "Unknown";
-    const entityType = node.getMatch("T")?.text() ?? "Unknown";
-    fileEntities.push({ entityClass: entityType, configurationClass: configClass, file: filePath, loc });
-    fileBlockers.push({ blockerType: "EntityTypeConfiguration<T>", file: filePath, severity: "warning" });
-    fileEfPatternCount += 1;
-    fileBlockerCount += 1;
+  // --- IDbSet<T> usages ---
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^IDbSet$" } })) {
+    idbSetUsages.increment({ filepath, linenumber: lineNumber(node) });
   }
 
-  // --- DbConfiguration subclass ---
-  const dbConfigCount = countPattern(rootNode, `class $NAME : DbConfiguration`);
-  if (dbConfigCount > 0) {
-    fileBlockers.push({ blockerType: "DbConfiguration subclass", file: filePath, severity: "warning" });
-    fileEfPatternCount += dbConfigCount;
-    fileBlockerCount += dbConfigCount;
+  // --- DbSet<T> usages ---
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^DbSet$" } })) {
+    dbSetUsages.increment({ filepath, linenumber: lineNumber(node) });
+  }
+
+  // --- EntityTypeConfiguration<T> usages ---
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^EntityTypeConfiguration$" } })) {
+    entityTypeConfigurationUsages.increment({ filepath, linenumber: lineNumber(node) });
+  }
+
+  // --- DbConfiguration usages ---
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^DbConfiguration$" } })) {
+    dbConfigurationUsages.increment({ filepath, linenumber: lineNumber(node) });
   }
 
   // --- Database.ExecuteSqlCommand ---
-  const execSqlCount = countPattern(rootNode, `Database.ExecuteSqlCommand($$$ARGS)`);
-  if (execSqlCount > 0) {
-    fileBlockers.push({ blockerType: "Database.ExecuteSqlCommand", file: filePath, severity: "critical" });
-    fileEfPatternCount += execSqlCount;
-    fileBlockerCount += execSqlCount;
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^ExecuteSqlCommand$" } })) {
+    executeSqlCommandUsages.increment({ filepath, linenumber: lineNumber(node) });
   }
 
   // --- Database.SqlQuery<T> ---
-  const sqlQueryCount = countPattern(rootNode, `Database.SqlQuery<$T>($$$ARGS)`);
-  if (sqlQueryCount > 0) {
-    fileBlockers.push({ blockerType: "Database.SqlQuery<T>", file: filePath, severity: "critical" });
-    fileEfPatternCount += sqlQueryCount;
-    fileBlockerCount += sqlQueryCount;
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^SqlQuery$" } })) {
+    executeSqlQueryUsages.increment({ filepath, linenumber: lineNumber(node) });
   }
 
   // --- Database.SetInitializer ---
-  const setInitCount = countPattern(rootNode, `Database.SetInitializer<$T>($$$ARGS)`);
-  if (setInitCount > 0) {
-    fileBlockers.push({ blockerType: "Database.SetInitializer", file: filePath, severity: "critical" });
-    fileEfPatternCount += setInitCount;
-    fileBlockerCount += setInitCount;
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^SetInitializer$" } })) {
+    setInitializerUsages.increment({ filepath, linenumber: lineNumber(node) });
   }
 
   // --- Virtual navigation properties ---
-  const virtualNavCount = countPattern(rootNode, `public virtual $TYPE $PROP { get; set; }`);
-  fileEfPatternCount += virtualNavCount;
+  for (const node of rootNode.findAll({ rule: { kind: "modifier", regex: "^virtual$" } })) {
+    // Only count if it's within a property declaration
+    if (node.parent()?.kind() === "property_declaration") {
+      virtualNavProps.increment({ filepath, linenumber: lineNumber(node) });
+    }
+  }
 
   // --- DbInterception.Add ---
-  const interceptorCount = countPattern(rootNode, `DbInterception.Add($$$ARGS)`);
-  if (interceptorCount > 0) {
-    fileBlockers.push({ blockerType: "DbInterception.Add (interceptor)", file: filePath, severity: "warning" });
-    fileEfPatternCount += interceptorCount;
-    fileBlockerCount += interceptorCount;
+  for (const node of rootNode.findAll({ rule: { kind: "identifier", regex: "^DbInterception$" } })) {
+    dbInterceptionUsages.increment({ filepath, linenumber: lineNumber(node) });
   }
 
-  // --- Merge into shared state with lock ---
-  const release = await acquireLock(STATE_KEY);
-  try {
-    const state: ScanState = getState<ScanState>(STATE_KEY) ?? { ...EMPTY_STATE, blockers: [], entities: [], files: [] };
-
-    state.totalCsFiles += 1;
-    state.totalCsLoc += loc;
-    state.objectContextUsageCount += objectContextCount;
-    state.dbContextSubclassCount += dbContextCount;
-    state.idbSetPropertyCount += idbSetCount;
-    state.dbSetPropertyCount += dbSetCount;
-    state.entityTypeConfigurationCount += etcNodes.length;
-    state.dbConfigurationClassCount += dbConfigCount;
-    state.executeSqlCommandCount += execSqlCount;
-    state.executeSqlQueryCount += sqlQueryCount;
-    state.setInitializerCount += setInitCount;
-    state.virtualNavPropCount += virtualNavCount;
-    state.interceptorRegistrationCount += interceptorCount;
-
-    if (fileEfPatternCount > 0) {
-      state.efRelatedCsFiles += 1;
-      state.efRelatedCsLoc += loc;
-    }
-
-    state.blockers.push(...fileBlockers);
-    state.entities.push(...fileEntities);
-    state.files.push({ file: filePath, loc, efPatternCount: fileEfPatternCount, blockerCount: fileBlockerCount });
-
-    setState<ScanState>(STATE_KEY, state);
-  } finally {
-    release();
-  }
-
-  // Mining codemod: never modify source files
   return null;
 };
 

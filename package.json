@@ -1,15 +1,15 @@
 {
   "name": "bytestrone-ef-csharp-pattern-mining",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Mining-codemod-for-EF6-Csharp-pattern-analysis",
   "packageManager": "npm@10.x",
   "type": "module",
   "scripts": {
-    "test": "npx codemod@latest jssg test -l typescript ./scripts/codemod.ts",
+    "test": "npx codemod jssg test -l csharp ./scripts/codemod.ts ./tests/csharp-patterns",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@codemod.com/jssg-types": "latest",
+    "@codemod.com/jssg-types": "^1.6.3",
     "typescript": "latest"
   }
 }

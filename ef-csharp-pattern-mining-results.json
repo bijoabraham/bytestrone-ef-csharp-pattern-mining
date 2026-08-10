@@ -1,0 +1,246 @@
+{
+  "workflowStep": "mine-csharp-ef-patterns",
+  "scannedAt": "2026-08-10T09:15:08.053Z",
+  "summary": {
+    "totalCsFiles": 1722,
+    "totalCsLoc": 164797,
+    "efRelatedCsFiles": 9,
+    "efRelatedCsLoc": 423
+  },
+  "metrics": [
+    {
+      "id": "total_cs_files",
+      "name": "total_cs_files",
+      "label": "Total C# Source Files",
+      "category": "inventory",
+      "severity": "info",
+      "value": 1722
+    },
+    {
+      "id": "total_cs_loc",
+      "name": "total_cs_loc",
+      "label": "Total Lines of Code (C#)",
+      "category": "inventory",
+      "severity": "info",
+      "value": 164797
+    },
+    {
+      "id": "ef_related_cs_files",
+      "name": "ef_related_cs_files",
+      "label": "C# Files Containing EF Patterns",
+      "category": "inventory",
+      "severity": "info",
+      "value": 9
+    },
+    {
+      "id": "ef_related_cs_loc",
+      "name": "ef_related_cs_loc",
+      "label": "LOC in EF-Related Files",
+      "category": "inventory",
+      "severity": "info",
+      "value": 423
+    },
+    {
+      "id": "dbcontext_subclass_count",
+      "name": "dbcontext_subclass_count",
+      "label": "DbContext Subclass Count",
+      "category": "inventory",
+      "severity": "info",
+      "value": 0
+    },
+    {
+      "id": "objectcontext_usage_count",
+      "name": "objectcontext_usage_count",
+      "label": "ObjectContext Usages (Critical Blocker)",
+      "category": "blockers",
+      "severity": "critical",
+      "value": 0
+    },
+    {
+      "id": "dbset_property_count",
+      "name": "dbset_property_count",
+      "label": "DbSet<T> Property Count",
+      "category": "inventory",
+      "severity": "info",
+      "value": 0
+    },
+    {
+      "id": "idbset_property_count",
+      "name": "idbset_property_count",
+      "label": "IDbSet<T> Property Count",
+      "category": "blockers",
+      "severity": "warning",
+      "value": 0
+    },
+    {
+      "id": "entity_type_configuration_count",
+      "name": "entity_type_configuration_count",
+      "label": "EntityTypeConfiguration<T> Classes",
+      "category": "blockers",
+      "severity": "warning",
+      "value": 0
+    },
+    {
+      "id": "execute_sql_command_count",
+      "name": "execute_sql_command_count",
+      "label": "Database.ExecuteSqlCommand Call Sites",
+      "category": "blockers",
+      "severity": "critical",
+      "value": 4
+    },
+    {
+      "id": "execute_sql_query_count",
+      "name": "execute_sql_query_count",
+      "label": "Database.SqlQuery<T> Call Sites",
+      "category": "blockers",
+      "severity": "critical",
+      "value": 0
+    },
+    {
+      "id": "set_initializer_count",
+      "name": "set_initializer_count",
+      "label": "Database.SetInitializer Call Sites",
+      "category": "blockers",
+      "severity": "critical",
+      "value": 5
+    },
+    {
+      "id": "virtual_nav_prop_count",
+      "name": "virtual_nav_prop_count",
+      "label": "Virtual Navigation Properties (Lazy Loading)",
+      "category": "inventory",
+      "severity": "warning",
+      "value": 0
+    },
+    {
+      "id": "interceptor_registration_count",
+      "name": "interceptor_registration_count",
+      "label": "DbInterception.Add() Call Sites",
+      "category": "blockers",
+      "severity": "warning",
+      "value": 0
+    },
+    {
+      "id": "db_configuration_class_count",
+      "name": "db_configuration_class_count",
+      "label": "DbConfiguration Subclasses",
+      "category": "blockers",
+      "severity": "warning",
+      "value": 0
+    },
+    {
+      "id": "total_blockers",
+      "name": "total_blockers",
+      "label": "Total Migration Blocker Count",
+      "category": "blockers",
+      "severity": "critical",
+      "value": 9
+    }
+  ],
+  "cardinality": {
+    "blockers": [
+      {
+        "blockerType": "Database.SetInitializer",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Tests\\Nop.Data.Tests\\SchemaTests.cs",
+        "severity": "critical"
+      },
+      {
+        "blockerType": "Database.SetInitializer",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Tax.FixedOrByCountryStateZip\\Data\\EfStartUpTask.cs",
+        "severity": "critical"
+      },
+      {
+        "blockerType": "Database.ExecuteSqlCommand",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Tax.FixedOrByCountryStateZip\\Data\\CountryStateZipObjectContext.cs",
+        "severity": "critical"
+      },
+      {
+        "blockerType": "Database.ExecuteSqlCommand",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Shipping.FixedOrByWeight\\Data\\ShippingByWeightObjectContext.cs",
+        "severity": "critical"
+      },
+      {
+        "blockerType": "Database.SetInitializer",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Shipping.FixedOrByWeight\\Data\\EfStartUpTask.cs",
+        "severity": "critical"
+      },
+      {
+        "blockerType": "Database.ExecuteSqlCommand",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Pickup.PickupInStore\\Data\\StorePickupPointObjectContext.cs",
+        "severity": "critical"
+      },
+      {
+        "blockerType": "Database.SetInitializer",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Pickup.PickupInStore\\Data\\EfStartUpTask.cs",
+        "severity": "critical"
+      },
+      {
+        "blockerType": "Database.ExecuteSqlCommand",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Feed.GoogleShopping\\Data\\GoogleProductObjectContext.cs",
+        "severity": "critical"
+      },
+      {
+        "blockerType": "Database.SetInitializer",
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Feed.GoogleShopping\\Data\\EfStartUpTask.cs",
+        "severity": "critical"
+      }
+    ],
+    "entities": [],
+    "topEfFiles": [
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Tests\\Nop.Data.Tests\\SchemaTests.cs",
+        "loc": 18,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      },
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Tax.FixedOrByCountryStateZip\\Data\\EfStartUpTask.cs",
+        "loc": 16,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      },
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Tax.FixedOrByCountryStateZip\\Data\\CountryStateZipObjectContext.cs",
+        "loc": 89,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      },
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Shipping.FixedOrByWeight\\Data\\ShippingByWeightObjectContext.cs",
+        "loc": 89,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      },
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Shipping.FixedOrByWeight\\Data\\EfStartUpTask.cs",
+        "loc": 16,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      },
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Pickup.PickupInStore\\Data\\StorePickupPointObjectContext.cs",
+        "loc": 74,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      },
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Pickup.PickupInStore\\Data\\EfStartUpTask.cs",
+        "loc": 16,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      },
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Feed.GoogleShopping\\Data\\GoogleProductObjectContext.cs",
+        "loc": 89,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      },
+      {
+        "file": "\\\\?\\C:\\Antigravity\\Repo\\NopCommerce-V1.0\\src\\Plugins\\Nop.Plugin.Feed.GoogleShopping\\Data\\EfStartUpTask.cs",
+        "loc": 16,
+        "efPatternCount": 1,
+        "blockerCount": 1
+      }
+    ]
+  }
+}

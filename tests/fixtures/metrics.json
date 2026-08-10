@@ -1,0 +1,20 @@
+{
+  "ef_execute_sql_command_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "25"
+      },
+      "count": 1
+    }
+  ],
+  "ef_set_initializer_usages": [
+    {
+      "cardinality": {
+        "filepath": "input.cs",
+        "linenumber": "28"
+      },
+      "count": 1
+    }
+  ]
+}
