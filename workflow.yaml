@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/codemod/codemod/refs/heads/main/schemas/workflow.json
+
+version: "1"
+
+nodes:
+  - id: mine-csharp-ef-patterns
+    name: "Mine C# source files for EF6 API patterns, blockers, LOC, and entity usage"
+    type: automatic
+    steps:
+      - name: "Scan all C# source files for EF6 patterns and emit metrics"
+        js-ast-grep:
+          js_file: scripts/codemod.ts
+          base_path: "."
+          language: "csharp"
+          include:
+            - "**/*.cs"
+          exclude:
+            - "**/node_modules/**"
+            - "**/bin/**"
+            - "**/obj/**"
+            - "**/dist/**"
+            - "**/Migrations/**"

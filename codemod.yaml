@@ -1,0 +1,25 @@
+schema_version: "1.0"
+
+name: "bytestrone-ef-csharp-pattern-mining"
+version: "0.1.0"
+description: "Mining-codemod-for-EF6-Csharp-pattern-analysis"
+author: "bijo-abraham"
+license: "MIT"
+
+
+targets:
+  # Keep this aligned with the files matched in workflow.yaml.
+  languages: ["csharp"]
+
+keywords: ["transformation", "migration"]
+
+registry:
+  access: "private"
+  visibility: "private"
+
+capabilities: []
+
+workflows:
+  - name: main
+    default: true
+    path: workflow.yaml
