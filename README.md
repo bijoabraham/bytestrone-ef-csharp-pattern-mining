@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.5.0)
+# bytestrone-ef-csharp-pattern-mining (v1.6.0)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
@@ -20,6 +20,25 @@ no lock, no whole-repo `fs` walk. This is the second design for the
 inventory/config/dependency-risk metrics; see [Known
 limitations](#known-limitations) for why the first one (a lock-guarded
 whole-repo `fs` walk on one file's invocation) had to be replaced.
+
+## Default Insights dashboard
+
+`insights/default-template.json` is what Registry's **View impact on repo**
+button uses to generate a dashboard for this package — an undocumented
+(as of this writing) file-based convention: a JSON dashboard spec at that
+exact path, with a `repo` repository template variable and a
+`packageReference: {"type": "self", "workflowName": "main", "stepName":
+"..."}` block self-referencing this package's own workflow/step. Every
+query-backed widget's `repositoryReference` points at the `repo` variable,
+so no repo is hardcoded in the template.
+
+It ships the full 17-widget "EF6 to EF Core Migration Assessment" dashboard
+(blocker trends, dependency-risk table, largest-files table,
+CODEOWNER rollup, risk/readiness scores, and the Estimated Effort/Cost
+formulas described under [Dashboard formulas](#composite-scores-readiness-risk-effort-are-not-emitted-here)),
+not the generic per-metric overview a package gets by default. Edit this
+file directly to change what **View impact on repo** generates — it's
+versioned and published like any other file in the package.
 
 ## Emitted metrics
 

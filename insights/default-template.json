@@ -1,0 +1,222 @@
+{
+  "title": "EF6 to EF Core Migration Assessment",
+  "description": "Assess repository-level EF migration blockers, dependency risk, project shape, and code footprint.",
+  "variables": [
+    {
+      "name": "repo",
+      "type": "repository"
+    }
+  ],
+  "timeRange": {
+    "type": "dynamic",
+    "relativeTo": "now",
+    "duration": "14 days",
+    "interval": "1d"
+  },
+  "packageReference": {
+    "type": "self",
+    "workflowName": "main",
+    "stepName": "Scan .cs/.csproj/packages.config/App.config/Web.config/appsettings*.json and emit metrics per file"
+  },
+  "widgets": [
+    {
+      "type": "timeseries",
+      "title": "EF migration blockers over time",
+      "layout": { "x": 0, "y": 0, "w": 12, "h": 4 },
+      "metric": "ef_migration_blocker",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "groupBy": [{ "type": "cardinality", "key": "severity" }],
+      "timeRange": {
+        "type": "dynamic",
+        "relativeTo": "now",
+        "duration": "12 weeks",
+        "interval": "1w"
+      },
+      "visualization": {
+        "type": "area",
+        "xAxis": "date",
+        "yAxis": "count",
+        "stacked": true,
+        "showDots": false,
+        "yAxisLabel": "Findings"
+      }
+    },
+    {
+      "type": "single-number",
+      "title": "Critical findings",
+      "layout": { "x": 0, "y": 4, "w": 3, "h": 2 },
+      "formulaAlias": "A",
+      "metric": "ef_migration_blocker",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "dimensionFilters": [{ "key": "severity", "operator": "equals", "value": "critical" }],
+      "format": "0"
+    },
+    {
+      "type": "single-number",
+      "title": "Warning findings",
+      "layout": { "x": 3, "y": 4, "w": 3, "h": 2 },
+      "formulaAlias": "B",
+      "metric": "ef_migration_blocker",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "dimensionFilters": [{ "key": "severity", "operator": "equals", "value": "warning" }],
+      "format": "0"
+    },
+    {
+      "type": "table",
+      "title": "Top risky patterns",
+      "layout": { "x": 0, "y": 6, "w": 6, "h": 4 },
+      "metric": "ef_migration_blocker",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "groupBy": [
+        { "type": "cardinality", "key": "blockerType" },
+        { "type": "cardinality", "key": "severity" }
+      ],
+      "columns": [
+        { "key": "blockerType", "label": "Blocker type" },
+        { "key": "severity", "label": "Severity" },
+        { "key": "selectValue_0", "label": "Count", "format": "0" }
+      ],
+      "sortBy": "selectValue_0",
+      "sortDirection": "desc",
+      "limit": 25,
+      "numberFormat": "0"
+    },
+    {
+      "type": "table",
+      "title": "Dependency risk",
+      "layout": { "x": 6, "y": 6, "w": 6, "h": 4 },
+      "metric": "ef_dependency_risk",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "groupBy": [
+        { "type": "cardinality", "key": "riskTier" },
+        { "type": "cardinality", "key": "packageId" }
+      ],
+      "columns": [
+        { "key": "riskTier", "label": "Risk tier" },
+        { "key": "packageId", "label": "Package ID" },
+        { "key": "selectValue_0", "label": "Count", "format": "0" }
+      ],
+      "limit": 25,
+      "numberFormat": "0"
+    },
+    {
+      "type": "table",
+      "title": "Largest source files",
+      "layout": { "x": 0, "y": 10, "w": 6, "h": 4 },
+      "metric": "ef_loc_inventory",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "groupBy": [
+        { "type": "cardinality", "key": "file" },
+        { "type": "cardinality", "key": "loc" }
+      ],
+      "columns": [
+        { "key": "file", "label": "File" },
+        { "key": "loc", "label": "LOC", "format": "0" }
+      ],
+      "sortBy": "loc",
+      "sortDirection": "desc",
+      "limit": 25,
+      "numberFormat": "0"
+    },
+    {
+      "type": "table",
+      "title": "Required changes by CODEOWNER",
+      "layout": { "x": 6, "y": 10, "w": 6, "h": 4 },
+      "metric": "ef_migration_blocker",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "groupBy": [{ "type": "builtin", "key": "codeowner" }],
+      "columns": [
+        { "key": "codeowner", "label": "CODEOWNER" },
+        { "key": "selectValue_0", "label": "Findings", "format": "0" }
+      ],
+      "sortBy": "selectValue_0",
+      "sortDirection": "desc",
+      "limit": 25,
+      "numberFormat": "0"
+    },
+    {
+      "type": "single-number",
+      "title": "Total projects",
+      "layout": { "x": 0, "y": 14, "w": 2, "h": 2 },
+      "formulaAlias": "C",
+      "metric": "total_projects",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "format": "0"
+    },
+    {
+      "type": "single-number",
+      "title": "Legacy csproj count",
+      "layout": { "x": 2, "y": 14, "w": 2, "h": 2 },
+      "formulaAlias": "D",
+      "metric": "legacy_csproj_count",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "format": "0"
+    },
+    {
+      "type": "single-number",
+      "title": "EF Migration Risk Score",
+      "layout": { "x": 4, "y": 14, "w": 4, "h": 2 },
+      "formula": "MIN(100, ROUND((A*10 + B*4) / MAX(C,1)))",
+      "format": "0"
+    },
+    {
+      "type": "single-number",
+      "title": "EF Core 8 Readiness %",
+      "layout": { "x": 8, "y": 14, "w": 4, "h": 2 },
+      "formula": "100 - MIN(100, ROUND((A*10 + B*4) / MAX(C,1)))",
+      "format": "0",
+      "suffix": "%"
+    },
+    {
+      "type": "single-number",
+      "title": "EF 6.5 Upgrade Readiness %",
+      "layout": { "x": 0, "y": 16, "w": 4, "h": 2 },
+      "formula": "ROUND(100 * (C - D) / MAX(C,1))",
+      "format": "0",
+      "suffix": "%"
+    },
+    {
+      "type": "markdown",
+      "title": "How to use this dashboard",
+      "layout": { "x": 4, "y": 16, "w": 8, "h": 3 },
+      "content": "### How to use this dashboard\n\n- Use the **risk score** and **readiness %** widgets for go/no-go planning.\n- Use **estimated effort** and **estimated cost** for budget approval.\n- Use the **Required changes by CODEOWNER** table for staffing.\n- Use the **Top risky patterns** table to sequence which blockers to fix first."
+    },
+    {
+      "type": "single-number",
+      "title": "Total LOC",
+      "layout": { "x": 0, "y": 19, "w": 2, "h": 2 },
+      "formulaAlias": "E",
+      "description": "Helper metric for the effort and cost formulas.",
+      "metric": "ef_total_loc",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "format": "0"
+    },
+    {
+      "type": "single-number",
+      "title": "High-risk dependencies",
+      "layout": { "x": 2, "y": 19, "w": 2, "h": 2 },
+      "formulaAlias": "F",
+      "description": "Helper metric for the effort and cost formulas.",
+      "metric": "ef_high_risk_dependency_count",
+      "repositoryReference": { "type": "template", "variableName": "repo" },
+      "format": "0"
+    },
+    {
+      "type": "single-number",
+      "title": "Estimated Effort (engineer-days)",
+      "layout": { "x": 4, "y": 19, "w": 4, "h": 2 },
+      "formulaAlias": "G",
+      "formula": "ROUND(E / 4000) + ROUND((A * 1.5 + B) / 10) + ROUND(F / 5)",
+      "format": "0"
+    },
+    {
+      "type": "single-number",
+      "title": "Estimated Cost",
+      "layout": { "x": 8, "y": 19, "w": 4, "h": 2 },
+      "description": "Derived from the same effort formula at $1200 per engineer-day.",
+      "formula": "(ROUND(E / 4000) + ROUND((A * 1.5 + B) / 10) + ROUND(F / 5)) * 1200",
+      "prefix": "$",
+      "format": "0"
+    }
+  ]
+}
