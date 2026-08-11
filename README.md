@@ -116,11 +116,28 @@ The compatibility knowledge base (`KNOWN_PACKAGES`/`FACADE_PACKAGES`/
 `dotnet-nuget-dependency-mining` package's `shared/nuget-compatibility.ts`,
 retargeted at EF6-to-EF-Core-8 migrations, and kept as plain regex over raw
 file text — like the rest of this file's inventory scan — rather than a
-dedicated `language: "xml"` js-ast-grep step. `language: "xml"` requires the
-engine to dynamically fetch and register a tree-sitter grammar at runtime,
-which was observed to fail outright on this Windows dev machine (parser
-registration denied by the OS); this metric avoids that fragility entirely by
-never touching the XML parser. A package name always takes priority over the
+dedicated `language: "xml"` js-ast-grep step.
+
+Earlier versions of this doc claimed `language: "xml"` "fails outright on
+Windows" — that was wrong. The actual failure (`Invalid language 'xml':
+Unsupported language: xml`, `Access is denied`) traced to a *stale,
+unrelated* cached parser (`less.dll` in `%LOCALAPPDATA%\codemod\tree-sitter-parsers\`,
+left over from an earlier session) failing its startup validation; the
+dynamic-parser loader validates every cached entry on init, so one corrupted,
+unrelated entry broke registration for every dynamically-loaded language that
+run, including `xml`. Deleting that cache directory and letting it
+re-download fixed it — confirmed twice, clean `xml` parsing both times.
+`language: "xml"` itself works fine on this machine.
+
+That said, this metric still deliberately avoids it, for a different reason:
+dynamic parser loading is a real runtime dependency (fetched and registered
+at run time, machine-local cache, provably capable of silently breaking from
+unrelated stale state as just demonstrated) that a plain-regex scan of raw
+text has zero exposure to. Given the regex approach is already implemented,
+tested, and verified correct against real-world data, there's no strong
+reason to trade that for equivalent-or-marginal accuracy gains at the cost of
+reintroducing a dependency with this failure mode. A package name always
+takes priority over the
 structural `gac`/`custom-binary` heuristics when recognized — e.g.
 `EntityFramework` classifies as `unsupported` regardless of whether it's
 referenced via `PackageReference`, `packages.config`, or an old-style bare
