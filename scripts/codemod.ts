@@ -2,8 +2,7 @@ import type { Codemod } from "codemod:ast-grep";
 import type CSharp from "codemod:ast-grep/langs/csharp";
 import { useMetricAtom } from "codemod:metrics";
 import { acquireLock, getState, setState } from "codemod:workflow";
-import { readdirSync, readFileSync } from "fs";
-import type { Dirent } from "fs";
+import { readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 
 type AstNode = {
@@ -69,23 +68,31 @@ function reportBlocker(blockerType: string, severity: BlockerSeverity, file: str
 const SKIP_DIRS = new Set(["node_modules", "bin", "obj", "dist", "build", ".git", "packages", "TestResults"]);
 
 function walk(dir: string, out: string[]) {
-  // withFileTypes avoids a separate statSync() per entry (Dirent already
-  // knows isDirectory()) — roughly halves wall-clock time on a large repo.
-  // This matters: the hosted Insights platform enforces a strict per-file
-  // execution budget (observed to be ~200ms) that plain local `codemod
-  // workflow run` does not, so this walk needs to be as cheap as possible.
-  let entries: Dirent[];
+  // Deliberately NOT readdirSync(dir, { withFileTypes: true }): that works
+  // fine under local `codemod workflow run`, but on the hosted Insights
+  // platform's runtime, Dirent.name came back `undefined`, which crashed
+  // join(dir, entry.name) with "Error converting from js 'undefined' into
+  // type 'string'" and failed 100% of files. Plain readdirSync + statSync
+  // is slower but is the version actually verified working on both
+  // local and hosted runtimes.
+  let entries: string[];
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
+    entries = readdirSync(dir);
   } catch {
     return;
   }
   for (const entry of entries) {
-    if (SKIP_DIRS.has(entry.name)) continue;
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
+    if (SKIP_DIRS.has(entry)) continue;
+    const full = join(dir, entry);
+    let isDir = false;
+    try {
+      isDir = statSync(full).isDirectory();
+    } catch {
+      continue;
+    }
+    if (isDir) {
       walk(full, out);
-    } else if (isRelevantInventoryFile(entry.name)) {
+    } else if (isRelevantInventoryFile(entry)) {
       out.push(full);
     }
   }

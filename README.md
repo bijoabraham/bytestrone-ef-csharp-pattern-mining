@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.2.1)
+# bytestrone-ef-csharp-pattern-mining (v1.2.2)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
@@ -111,21 +111,34 @@ believed to be true of essentially every real EF6 codebase.
 hosted platform enforces a per-file execution budget (observed ~200ms) that
 local `codemod workflow run` does not. On a large repo (e.g. NopCommerce,
 ~4,500 files), `scanInventoryOnce()`'s whole-directory `fs` walk took
-625ms-1.5s (highly variable — OS-level I/O noise, not something JS-level
-tuning bounds reliably), and the file that wins the scan lock will exceed
-the hosted budget. Two mitigations are in place: `readdirSync(...,
-{withFileTypes: true})` to avoid a `statSync` per entry, and
-double-checked locking so files arriving after the scan completes see that
-immediately instead of blocking on `acquireLock` — this cut collateral
-damage on NopCommerce from 12 blocked files down to 1 (the lock winner
-itself, which still risks the hosted timeout on large repos). The
-underlying fix — validated but not yet implemented — is to stop doing a
-manual `fs` walk entirely and instead broaden the workflow's `include` glob
-to also match `.csproj`/`packages.config`/`*.config`/`appsettings*.json`
-directly, letting the engine's own native file walker invoke this codemod
-separately per config file (confirmed safe: the C# parser is never touched
-for those files, only `readFileSync`). That distributes the cost across
-many small per-file invocations instead of one large blocking one.
+625ms-1.5s locally (highly variable — OS-level I/O noise, not something
+JS-level tuning bounds reliably), and the file that wins the scan lock
+will exceed the hosted budget. Double-checked locking is in place so files
+arriving after the scan completes see that immediately instead of blocking
+on `acquireLock` — this cut collateral damage on NopCommerce from 12
+blocked files down to 1 (the lock winner itself, which still risks the
+hosted timeout on large repos).
+
+**`readdirSync(dir, { withFileTypes: true })` is deliberately NOT used**,
+even though it avoids a `statSync` call per entry and is faster locally.
+v1.2.1 shipped it briefly and it crashed the hosted platform's runtime
+100% of the time — `Dirent.name` came back `undefined` there (works fine
+under local `codemod workflow run`, which uses a different LLRT/`fs` build
+than the hosted execution environment), producing `Error converting from
+js 'undefined' into type 'string'` inside `join(dir, entry.name)` for
+every single file. Reverted in v1.2.2. This is a concrete example of local
+CLI runs not being a reliable proxy for hosted-platform behavior — verify
+any `fs`/runtime API change against a real hosted dashboard run, not just
+`codemod workflow run`, before considering it safe.
+
+The underlying fix for the timeout risk — validated but not yet
+implemented — is to stop doing a manual `fs` walk entirely and instead
+broaden the workflow's `include` glob to also match
+`.csproj`/`packages.config`/`*.config`/`appsettings*.json` directly,
+letting the engine's own native file walker invoke this codemod separately
+per config file (confirmed safe: the C# parser is never touched for those
+files, only `readFileSync`). That distributes the cost across many small
+per-file invocations instead of one large blocking one.
 
 ## Testing
 
