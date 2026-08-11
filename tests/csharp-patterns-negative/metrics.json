@@ -1,0 +1,11 @@
+{
+  "ef_loc_inventory": [
+    {
+      "cardinality": {
+        "file": "input.cs",
+        "loc": "12"
+      },
+      "count": 1
+    }
+  ]
+}

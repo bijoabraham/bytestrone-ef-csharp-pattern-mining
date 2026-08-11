@@ -67,6 +67,15 @@
       "count": 1
     }
   ],
+  "ef_loc_inventory": [
+    {
+      "cardinality": {
+        "file": "input.cs",
+        "loc": "51"
+      },
+      "count": 1
+    }
+  ],
   "ef_migration_blocker": [
     {
       "cardinality": {

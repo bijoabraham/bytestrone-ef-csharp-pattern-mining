@@ -19,6 +19,15 @@
       "count": 1
     }
   ],
+  "ef_loc_inventory": [
+    {
+      "cardinality": {
+        "file": "src/Data/StoreContext.cs",
+        "loc": "12"
+      },
+      "count": 1
+    }
+  ],
   "ef_migration_blocker": [
     {
       "cardinality": {

@@ -1,7 +1,7 @@
 schema_version: "1.0"
 
 name: "bytestrone-ef-csharp-pattern-mining"
-version: "1.2.2"
+version: "1.3.0"
 description: "Mining-codemod-for-EF6-Csharp-pattern-analysis"
 author: "bijo-abraham"
 license: "MIT"

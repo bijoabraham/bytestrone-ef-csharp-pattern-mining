@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.2.2)
+# bytestrone-ef-csharp-pattern-mining (v1.3.0)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
@@ -100,6 +100,13 @@ structural `gac`/`custom-binary` heuristics when recognized — e.g.
 referenced via `PackageReference`, `packages.config`, or an old-style bare
 `<Reference>`.
 
+### Lines of code
+
+`ef_loc_inventory` — one row per `.cs` file, cardinality `{file, loc}`
+(non-blank line count). A sizing signal for effort/cost dashboard formulas
+that scale with codebase size — e.g. `effort_days = (SUM(loc) / 4000) + ...`
+— modeled on the community `dotnet-loc-inventory` metric.
+
 ## Known limitations
 
 The inventory/config scan only fires while at least one `.cs` file exists in
@@ -156,6 +163,17 @@ exercise the whole-directory `fs` walk the inventory/config scan depends on
 — see `tests/inventory-and-config-scan/README.md` for details. Run
 `test:inventory-scan` explicitly whenever you touch `scanInventoryOnce()` or
 its helpers.
+
+`codemod jssg test`'s directory-fixture discovery only looks one level deep
+under `./tests` — a case directory needs `input.*`/`expected.*` (or
+`input/`/`expected/`) directly inside it. Nesting cases one level deeper
+(e.g. `tests/csharp-patterns/positive/`) makes them silently invisible to
+`npm test` even though the files are valid fixtures — this happened here
+once (`csharp-patterns/positive` and `.../negative` ran 0 times for a while
+after the test script was broadened from a scoped path to the whole `tests/`
+directory) until the directories were flattened to
+`tests/csharp-patterns-positive/` and `tests/csharp-patterns-negative/`.
+Keep new fixture directories flat under `tests/`.
 
 ## Composite scores (readiness, risk, effort) are not emitted here
 

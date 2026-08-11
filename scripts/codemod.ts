@@ -47,6 +47,17 @@ const configSurface = useMetricAtom("ef_config_surface");
 // --- NuGet/GAC dependency risk (every package reference, not just EF) ---
 const dependencyRisk = useMetricAtom("ef_dependency_risk");
 
+// --- Lines of code per file (sizing signal for effort/cost formulas) ---
+const locInventory = useMetricAtom("ef_loc_inventory");
+
+function nonBlankLineCount(source: string): number {
+  let count = 0;
+  for (const line of source.split("\n")) {
+    if (line.trim().length > 0) count++;
+  }
+  return count;
+}
+
 type BlockerSeverity = "critical" | "warning";
 
 function reportBlocker(blockerType: string, severity: BlockerSeverity, file: string, linenumber: string) {
@@ -340,6 +351,8 @@ const codemod: Codemod<CSharp> = async (root) => {
 
   const filepath = root.relativeFilename();
   if (!filepath.endsWith(".cs")) return null;
+
+  locInventory.increment({ file: filepath, loc: String(nonBlankLineCount(root.source())) });
 
   const rootNode = root.root();
 

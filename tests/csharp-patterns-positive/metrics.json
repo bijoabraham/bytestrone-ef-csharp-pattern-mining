@@ -79,6 +79,98 @@
       "count": 1
     }
   ],
+  "ef_loc_inventory": [
+    {
+      "cardinality": {
+        "file": "input.cs",
+        "loc": "24"
+      },
+      "count": 1
+    }
+  ],
+  "ef_migration_blocker": [
+    {
+      "cardinality": {
+        "blockerType": "DbConfiguration",
+        "file": "input.cs",
+        "linenumber": "27",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "DbInterception",
+        "file": "input.cs",
+        "linenumber": "22",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "EntityTypeConfiguration",
+        "file": "input.cs",
+        "linenumber": "26",
+        "severity": "warning"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "ExecuteSqlCommand",
+        "file": "input.cs",
+        "linenumber": "20",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "IDbSet",
+        "file": "input.cs",
+        "linenumber": "13",
+        "severity": "warning"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "ObjectContext",
+        "file": "input.cs",
+        "linenumber": "9",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "SetInitializer",
+        "file": "input.cs",
+        "linenumber": "19",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "SqlQuery",
+        "file": "input.cs",
+        "linenumber": "21",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "VirtualNavigationProperty",
+        "file": "input.cs",
+        "linenumber": "15",
+        "severity": "warning"
+      },
+      "count": 1
+    }
+  ],
   "ef_objectcontext_usages": [
     {
       "cardinality": {
