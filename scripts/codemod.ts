@@ -44,6 +44,9 @@ const efVersion = useMetricAtom("ef_version");
 // --- Configuration surface area (App.config/Web.config/appsettings*.json) ---
 const configSurface = useMetricAtom("ef_config_surface");
 
+// --- NuGet/GAC dependency risk (every package reference, not just EF) ---
+const dependencyRisk = useMetricAtom("ef_dependency_risk");
+
 type BlockerSeverity = "critical" | "warning";
 
 function reportBlocker(blockerType: string, severity: BlockerSeverity, file: string, linenumber: string) {
@@ -120,6 +123,143 @@ function scanPackagesConfigEfVersion(content: string, file: string) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// NuGet/GAC dependency risk classification.
+//
+// Compatibility knowledge base adapted from the community `dotnet-nuget-
+// dependency-mining` package's shared/nuget-compatibility.ts, retargeted at
+// EF6-to-EF-Core-8 migrations. Kept as plain regex over raw file text (like
+// the rest of this file's inventory scan) rather than a dedicated `language:
+// "xml"` js-ast-grep step: on this platform, `language: "xml"` requires the
+// engine to dynamically fetch and register a tree-sitter grammar at runtime,
+// which was observed to fail outright on Windows (parser registration denied
+// by the OS) — a fragility this avoids entirely by never touching the XML
+// parser.
+// ---------------------------------------------------------------------------
+
+type RiskTier = "supported" | "requires-upgrade" | "deprecated" | "unsupported" | "custom-binary" | "gac";
+type RiskLevel = "low" | "medium" | "high" | "critical";
+type DependencySource = "PackageReference" | "packages.config" | "AssemblyReference" | "HintPath";
+
+interface PackageCompatibility {
+  riskTier: RiskTier;
+  risk: RiskLevel;
+  targetVersion: string;
+}
+
+const KNOWN_PACKAGES = new Map<string, PackageCompatibility>([
+  ["EntityFramework", { riskTier: "unsupported", risk: "high", targetVersion: "Microsoft.EntityFrameworkCore 8.x" }],
+  ["EntityFramework.SqlServer", { riskTier: "unsupported", risk: "high", targetVersion: "Microsoft.EntityFrameworkCore.SqlServer 8.x" }],
+  ["EntityFramework.SqlServerCompact", { riskTier: "unsupported", risk: "high", targetVersion: "No direct EF Core equivalent — SQL Server CE is discontinued" }],
+  ["Newtonsoft.Json", { riskTier: "requires-upgrade", risk: "low", targetVersion: "13.0.3" }],
+  ["Autofac", { riskTier: "requires-upgrade", risk: "low", targetVersion: "8.0.0" }],
+  ["Ninject", { riskTier: "requires-upgrade", risk: "medium", targetVersion: "3.3.x (verify .NET 8 support)" }],
+  ["Unity", { riskTier: "deprecated", risk: "medium", targetVersion: "Microsoft.Extensions.DependencyInjection" }],
+  ["log4net", { riskTier: "deprecated", risk: "medium", targetVersion: "Serilog / Microsoft.Extensions.Logging (optional)" }],
+  ["elmah", { riskTier: "deprecated", risk: "medium", targetVersion: "Microsoft.Extensions.Logging + hosted diagnostics" }],
+  ["Microsoft.Owin", { riskTier: "unsupported", risk: "high", targetVersion: "ASP.NET Core middleware" }],
+  ["Microsoft.Owin.Hosting", { riskTier: "unsupported", risk: "high", targetVersion: "ASP.NET Core host" }],
+  ["Microsoft.AspNet.WebApi.OwinSelfHost", { riskTier: "unsupported", risk: "high", targetVersion: "ASP.NET Core host" }],
+  ["Microsoft.AspNet.WebApi.Core", { riskTier: "unsupported", risk: "high", targetVersion: "Microsoft.AspNetCore.Mvc" }],
+  ["Microsoft.AspNet.Mvc", { riskTier: "unsupported", risk: "high", targetVersion: "Microsoft.AspNetCore.Mvc" }],
+  ["System.ServiceModel", { riskTier: "unsupported", risk: "high", targetVersion: "CoreWCF / gRPC" }],
+  ["WebGrease", { riskTier: "deprecated", risk: "low", targetVersion: "Remove — bundling handled by modern build tooling" }],
+]);
+
+const FACADE_PACKAGES = new Set(["NETStandard.Library", "System.Memory", "System.Buffers", "Microsoft.NETCore.Platforms"]);
+
+const GAC_REFERENCES = new Set(["System.Web", "System.Web.Http", "System.Web.Mvc", "System.Web.Extensions", "System.Configuration", "mscorlib"]);
+
+function classifyPackage(packageId: string, source: DependencySource): PackageCompatibility {
+  // A recognized package name is more specific/actionable guidance than a
+  // structural heuristic based on how it happened to be referenced, so name
+  // recognition wins even if e.g. EntityFramework shows up as a bare
+  // AssemblyReference or via HintPath (both common for pre-PackageReference
+  // projects).
+  const known = KNOWN_PACKAGES.get(packageId);
+  if (known) return known;
+  if (source === "AssemblyReference" || GAC_REFERENCES.has(packageId)) {
+    return { riskTier: "gac", risk: "critical", targetVersion: "NuGet / ASP.NET Core equivalent" };
+  }
+  if (source === "HintPath") {
+    return { riskTier: "custom-binary", risk: "high", targetVersion: "Review vendor SDK for .NET 8 support" };
+  }
+  if (FACADE_PACKAGES.has(packageId)) {
+    return { riskTier: "deprecated", risk: "medium", targetVersion: "Remove (framework facade package)" };
+  }
+  if (packageId.startsWith("Microsoft.AspNetCore.") || packageId.startsWith("Microsoft.EntityFrameworkCore")) {
+    return { riskTier: "supported", risk: "low", targetVersion: "current" };
+  }
+  return { riskTier: "requires-upgrade", risk: "medium", targetVersion: "Verify .NET 8 / EF Core 8 compatibility" };
+}
+
+function emitDependencyRisk(packageId: string, version: string, source: DependencySource, file: string) {
+  const compat = classifyPackage(packageId, source);
+  dependencyRisk.increment({
+    packageId,
+    version: version || "unknown",
+    source,
+    file,
+    riskTier: compat.riskTier,
+    risk: compat.risk,
+    targetVersion: compat.targetVersion,
+  });
+}
+
+function scanCsprojDependencies(content: string, file: string) {
+  const pkgRefRe = /<PackageReference\s+Include="([^"]+)"\s+Version="([^"]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = pkgRefRe.exec(content))) {
+    const packageId = m[1];
+    const version = m[2];
+    if (!packageId || !version) continue;
+    emitDependencyRisk(packageId, version, "PackageReference", file);
+  }
+
+  // Old-style <Reference Include="Pkg, Version=X, Culture=..., PublicKeyToken=...">
+  // either self-closing (bare, GAC-resolved) or wrapping a <HintPath> child
+  // (a local/vendored binary). Handled as two separate, unambiguous regexes
+  // rather than one pattern with a "/>|>...</Reference>" alternation: an
+  // earlier version combined them behind a lazy [^>]*?, and on a large real
+  // .csproj with many <Reference> entries that shape caused catastrophic
+  // backtracking severe enough to hang the whole workflow (60s+ with no
+  // progress). Splitting removes the ambiguity the backtracking came from —
+  // each regex only ever matches its own well-defined tag shape.
+  const selfClosingRefRe = /<Reference\s+Include="([^"]+)"\s*\/>/g;
+  while ((m = selfClosingRefRe.exec(content))) {
+    const include = m[1];
+    if (!include) continue;
+    emitReferenceDependency(include, "AssemblyReference", file);
+  }
+
+  const blockRefRe = /<Reference\s+Include="([^"]+)"\s*>([\s\S]*?)<\/Reference>/g;
+  while ((m = blockRefRe.exec(content))) {
+    const include = m[1];
+    if (!include) continue;
+    const inner = m[2] ?? "";
+    const source: DependencySource = /<HintPath>/.test(inner) ? "HintPath" : "AssemblyReference";
+    emitReferenceDependency(include, source, file);
+  }
+}
+
+function emitReferenceDependency(include: string, source: DependencySource, file: string) {
+  const packageId = (include.split(",")[0] ?? include).trim();
+  const versionMatch = /Version=([\d.]+)/.exec(include);
+  const version = versionMatch?.[1] ?? "";
+  emitDependencyRisk(packageId, version, source, file);
+}
+
+function scanPackagesConfigDependencies(content: string, file: string) {
+  const re = /<package\s+id="([^"]+)"\s+version="([^"]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content))) {
+    const packageId = m[1];
+    const version = m[2];
+    if (!packageId || !version) continue;
+    emitDependencyRisk(packageId, version, "packages.config", file);
+  }
+}
+
 function scanConfigSurface(content: string, file: string) {
   const connRe = /<add\s+name="([^"]+)"[^>]*connectionString=/g;
   let m: RegExpExecArray | null;
@@ -152,9 +292,13 @@ function scanInventoryOnce() {
           legacyCsprojCount.increment({ file });
         }
         scanCsprojEfVersion(content, file);
+        scanCsprojDependencies(content, file);
       } else if (/(^|[\\/])packages\.config$/.test(file)) {
         const content = readSafe(file);
-        if (content) scanPackagesConfigEfVersion(content, file);
+        if (content) {
+          scanPackagesConfigEfVersion(content, file);
+          scanPackagesConfigDependencies(content, file);
+        }
       } else if (/(^|[\\/])(App|Web)\.config$/.test(file) || /appsettings(\..+)?\.json$/.test(file)) {
         const content = readSafe(file);
         if (content) scanConfigSurface(content, file);

@@ -34,10 +34,22 @@ const required = [
   "legacy_csproj_count:",
   "ef_version:",
   "ef_config_surface:",
+  "ef_dependency_risk:",
   "packageId=EntityFramework",
   "configType=connectionString",
   "configType=entityFrameworkSection",
   "configType=appsettingsConnectionStrings",
+  // PackageReference/AssemblyReference/HintPath/packages.config sources,
+  // and every risk tier, all represented in the fixture:
+  "riskTier=unsupported",
+  "riskTier=gac",
+  "riskTier=custom-binary",
+  "riskTier=requires-upgrade",
+  "riskTier=deprecated",
+  "packageId=System.Web",
+  "packageId=Acme.Internal.Sdk",
+  "packageId=Newtonsoft.Json",
+  "packageId=log4net",
 ];
 
 const missing = required.filter((needle) => !output.includes(needle));

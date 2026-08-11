@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.1.0)
+# bytestrone-ef-csharp-pattern-mining (v1.2.0)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
@@ -62,6 +62,43 @@ one of `connectionString` (from `App.config`/`Web.config`
 `<connectionStrings>`), `entityFrameworkSection` (an `<entityFramework>`
 block), or `appsettingsConnectionStrings` (a `"ConnectionStrings"` key in
 `appsettings*.json`).
+
+### NuGet/GAC dependency risk
+
+`ef_dependency_risk` — every package reference found across
+`<PackageReference>` (SDK-style `.csproj`), `packages.config`, and old-style
+`<Reference Include="...">` elements (both bare — GAC-resolved — and
+`<HintPath>`-backed local/vendored binaries), cardinality
+`{packageId, version, source, file, riskTier, risk, targetVersion}`.
+
+`source` is `PackageReference`, `packages.config`, `AssemblyReference` (bare
+old-style `<Reference>`, no `<HintPath>`), or `HintPath`.
+
+`riskTier` is one of:
+
+| riskTier | Meaning |
+| --- | --- |
+| `supported` | Already `Microsoft.AspNetCore.*`/`Microsoft.EntityFrameworkCore*` — no action needed |
+| `requires-upgrade` | Known-compatible package, needs a version bump (e.g. `Newtonsoft.Json`) or an unrecognized package worth a manual check |
+| `deprecated` | Still works but has a preferred modern replacement (e.g. `log4net` → `Serilog`), or a framework facade package that should just be removed |
+| `unsupported` | No direct .NET 8 equivalent exists; requires a rewrite (e.g. `EntityFramework` itself, `System.ServiceModel`/WCF, OWIN middleware) |
+| `custom-binary` | A `<HintPath>`-referenced local/vendored DLL not recognized by name — needs a manual compatibility check with the vendor |
+| `gac` | A bare `<Reference>` to a Global Assembly Cache-resident framework assembly (e.g. `System.Web`) with no NuGet equivalent shipped — needs an ASP.NET Core replacement |
+
+The compatibility knowledge base (`KNOWN_PACKAGES`/`FACADE_PACKAGES`/
+`GAC_REFERENCES` in `scripts/codemod.ts`) is adapted from the community
+`dotnet-nuget-dependency-mining` package's `shared/nuget-compatibility.ts`,
+retargeted at EF6-to-EF-Core-8 migrations, and kept as plain regex over raw
+file text — like the rest of this file's inventory scan — rather than a
+dedicated `language: "xml"` js-ast-grep step. `language: "xml"` requires the
+engine to dynamically fetch and register a tree-sitter grammar at runtime,
+which was observed to fail outright on this Windows dev machine (parser
+registration denied by the OS); this metric avoids that fragility entirely by
+never touching the XML parser. A package name always takes priority over the
+structural `gac`/`custom-binary` heuristics when recognized — e.g.
+`EntityFramework` classifies as `unsupported` regardless of whether it's
+referenced via `PackageReference`, `packages.config`, or an old-style bare
+`<Reference>`.
 
 ## Known limitation
 

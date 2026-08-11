@@ -1,5 +1,9 @@
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Reference Include="EntityFramework, Version=6.4.4.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+    <Reference Include="System.Web" />
+    <Reference Include="Acme.Internal.Sdk, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\..\vendor\Acme.Internal.Sdk.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>
