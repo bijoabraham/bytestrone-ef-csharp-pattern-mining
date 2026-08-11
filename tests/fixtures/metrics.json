@@ -180,6 +180,14 @@
       "count": 1
     }
   ],
+  "ef_total_loc": [
+    {
+      "cardinality": {
+        "file": "input.cs"
+      },
+      "count": 51
+    }
+  ],
   "ef_virtual_nav_props": [
     {
       "cardinality": {

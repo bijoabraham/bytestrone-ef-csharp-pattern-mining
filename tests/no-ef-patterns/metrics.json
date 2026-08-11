@@ -8,5 +8,13 @@
       },
       "count": 1
     }
+  ],
+  "ef_total_loc": [
+    {
+      "cardinality": {
+        "file": "input.cs"
+      },
+      "count": 32
+    }
   ]
 }

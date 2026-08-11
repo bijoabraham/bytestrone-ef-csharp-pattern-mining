@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.4.1)
+# bytestrone-ef-csharp-pattern-mining (v1.5.0)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
@@ -107,12 +107,31 @@ structural `gac`/`custom-binary` heuristics when recognized — e.g.
 referenced via `PackageReference`, `packages.config`, or an old-style bare
 `<Reference>`.
 
+`ef_high_risk_dependency_count` — a pre-filtered companion to
+`ef_dependency_risk`, one row per dependency whose `riskTier` is
+`unsupported`, `gac`, `custom-binary`, or `requires-upgrade` (i.e. everything
+except `supported` and `deprecated`), cardinality `{packageId, riskTier,
+file}`. Exists because dashboard Formula widgets need an IN-list filter
+(`riskTier in {...}`) to total "high risk" deps from `ef_dependency_risk`
+directly, which isn't reliably expressible there — this metric applies that
+exact filter at emission time, so a plain `SUM(ef_high_risk_dependency_count)`
+gives the total.
+
 ### Lines of code
 
-`ef_loc_inventory` — one row per `.cs` file, cardinality `{file, loc}`
-(non-blank line count). A sizing signal for effort/cost dashboard formulas
-that scale with codebase size — e.g. `effort_days = (SUM(loc) / 4000) + ...`
-— modeled on the community `dotnet-loc-inventory` metric.
+`ef_loc_inventory` — one row per `.cs` file, cardinality `{file, loc,
+totalLines}` (`loc` = non-blank line count, `totalLines` = including blanks).
+Good for a "largest source files" table, but `loc`/`totalLines` are string
+cardinality *tags* here, not numeric measures — a dashboard `SUM()` over this
+metric sums row counts (1 per file), not the tag values.
+
+`ef_total_loc` — a summable companion, one row per `.cs` file, cardinality
+`{file}`, incremented by the file's actual non-blank line count (via
+`MetricAtom.increment`'s `amount` parameter) instead of the default 1. A
+plain `SUM(ef_total_loc)` therefore gives the true total LOC across the
+scanned files — the metric this repo's effort/cost dashboard formulas
+actually need, e.g. `effort_days = (SUM(ef_total_loc) / 4000) + ...` —
+modeled on the community `dotnet-loc-inventory` metric.
 
 ## Known limitations
 

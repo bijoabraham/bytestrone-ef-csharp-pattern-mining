@@ -35,6 +35,8 @@ const required = [
   "ef_version:",
   "ef_config_surface:",
   "ef_dependency_risk:",
+  "ef_total_loc:",
+  "ef_high_risk_dependency_count:",
   "packageId=EntityFramework",
   "configType=connectionString",
   "configType=entityFrameworkSection",

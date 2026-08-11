@@ -48,6 +48,21 @@ const dependencyRisk = useMetricAtom("ef_dependency_risk");
 // --- Lines of code per file (sizing signal for effort/cost formulas) ---
 const locInventory = useMetricAtom("ef_loc_inventory");
 
+// --- Summable total LOC. ef_loc_inventory's `loc` is a string cardinality
+// tag (a dimension), not a numeric measure, so a dashboard SUM() over it
+// sums row counts, not the tag values. This metric instead increments by
+// the actual line count per file (via MetricAtom.increment's `amount`
+// param), so SUM(ef_total_loc) across its rows equals the true total LOC. ---
+const totalLoc = useMetricAtom("ef_total_loc");
+
+// --- Pre-filtered high-risk dependency count. ef_dependency_risk's
+// `riskTier` is also a cardinality tag, and dashboard Formula widgets need
+// an IN-list filter (riskTier in {unsupported, gac, custom-binary,
+// requires-upgrade}) to total "high risk" deps, which isn't reliably
+// expressible there. This metric pre-applies that exact filter at emission
+// time so SUM(ef_high_risk_dependency_count) gives the total directly. ---
+const highRiskDependencyCount = useMetricAtom("ef_high_risk_dependency_count");
+
 interface LineCounts {
   totalLines: number;
   nonBlankLines: number;
@@ -150,6 +165,11 @@ const FACADE_PACKAGES = new Set(["NETStandard.Library", "System.Memory", "System
 
 const GAC_REFERENCES = new Set(["System.Web", "System.Web.Http", "System.Web.Mvc", "System.Web.Extensions", "System.Configuration", "mscorlib"]);
 
+// Tiers counted toward ef_high_risk_dependency_count. Excludes "supported"
+// (already fine) and "deprecated" (works today, replacement is optional) —
+// everything else needs action before or during the EF Core 8 migration.
+const HIGH_RISK_TIERS = new Set<RiskTier>(["unsupported", "gac", "custom-binary", "requires-upgrade"]);
+
 function classifyPackage(packageId: string, source: DependencySource): PackageCompatibility {
   // A recognized package name is more specific/actionable guidance than a
   // structural heuristic based on how it happened to be referenced, so name
@@ -184,6 +204,9 @@ function emitDependencyRisk(packageId: string, version: string, source: Dependen
     risk: compat.risk,
     targetVersion: compat.targetVersion,
   });
+  if (HIGH_RISK_TIERS.has(compat.riskTier)) {
+    highRiskDependencyCount.increment({ packageId, riskTier: compat.riskTier, file });
+  }
 }
 
 function scanCsprojDependencies(content: string, file: string) {
@@ -269,6 +292,7 @@ function scanCsFile(root: SgRoot<CSharp>, filepath: string) {
     loc: String(lineCounts.nonBlankLines),
     totalLines: String(lineCounts.totalLines),
   });
+  totalLoc.increment({ file: filepath }, lineCounts.nonBlankLines);
 
   const rootNode = root.root();
 
