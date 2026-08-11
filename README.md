@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.6.0)
+# bytestrone-ef-csharp-pattern-mining (v1.6.1)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
