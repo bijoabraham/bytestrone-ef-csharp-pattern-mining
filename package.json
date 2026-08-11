@@ -1,11 +1,12 @@
 {
   "name": "bytestrone-ef-csharp-pattern-mining",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Mining-codemod-for-EF6-Csharp-pattern-analysis",
   "packageManager": "npm@10.x",
   "type": "module",
   "scripts": {
-    "test": "npx codemod jssg test -l csharp ./scripts/codemod.ts ./tests/csharp-patterns",
+    "test": "npx codemod jssg test -l csharp ./scripts/codemod.ts ./tests && npm run test:inventory-scan",
+    "test:inventory-scan": "node ./scripts/verify-inventory-scan.mjs",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {

@@ -1,0 +1,33 @@
+{
+  "ef_dbcontext_usages": [
+    {
+      "cardinality": {
+        "explanation": "EF DbContext usage found. Verify compatibility with EF Core.",
+        "filepath": "src/Data/StoreContext.cs",
+        "linenumber": "5"
+      },
+      "count": 1
+    }
+  ],
+  "ef_idbset_usages": [
+    {
+      "cardinality": {
+        "explanation": "Legacy IDbSet usage. Migrate to DbSet in EF Core.",
+        "filepath": "src/Data/StoreContext.cs",
+        "linenumber": "7"
+      },
+      "count": 1
+    }
+  ],
+  "ef_migration_blocker": [
+    {
+      "cardinality": {
+        "blockerType": "IDbSet",
+        "file": "src/Data/StoreContext.cs",
+        "linenumber": "7",
+        "severity": "warning"
+      },
+      "count": 1
+    }
+  ]
+}

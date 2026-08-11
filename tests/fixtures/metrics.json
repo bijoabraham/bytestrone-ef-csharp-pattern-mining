@@ -1,9 +1,161 @@
 {
+  "ef_dbconfiguration_usages": [
+    {
+      "cardinality": {
+        "explanation": "Legacy DbConfiguration usage. Code-based configuration must be moved to DbContext.OnConfiguring or DI.",
+        "filepath": "input.cs",
+        "linenumber": "44"
+      },
+      "count": 1
+    }
+  ],
+  "ef_dbcontext_usages": [
+    {
+      "cardinality": {
+        "explanation": "EF DbContext usage found. Verify compatibility with EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "16"
+      },
+      "count": 1
+    }
+  ],
+  "ef_dbset_usages": [
+    {
+      "cardinality": {
+        "explanation": "EF DbSet usage found. Verify compatibility with EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "20"
+      },
+      "count": 1
+    }
+  ],
+  "ef_entity_type_configuration_usages": [
+    {
+      "cardinality": {
+        "explanation": "Legacy EntityTypeConfiguration usage. Migrate to IEntityTypeConfiguration in EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "33"
+      },
+      "count": 1
+    }
+  ],
   "ef_execute_sql_command_usages": [
     {
       "cardinality": {
+        "explanation": "Raw SQL execution. Migrate to ExecuteSqlRaw or ExecuteSqlInterpolated in EF Core.",
         "filepath": "input.cs",
         "linenumber": "25"
+      },
+      "count": 1
+    }
+  ],
+  "ef_idbset_usages": [
+    {
+      "cardinality": {
+        "explanation": "Legacy IDbSet usage. Migrate to DbSet in EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "18"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "explanation": "Legacy IDbSet usage. Migrate to DbSet in EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "19"
+      },
+      "count": 1
+    }
+  ],
+  "ef_migration_blocker": [
+    {
+      "cardinality": {
+        "blockerType": "DbConfiguration",
+        "file": "input.cs",
+        "linenumber": "44",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "EntityTypeConfiguration",
+        "file": "input.cs",
+        "linenumber": "33",
+        "severity": "warning"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "ExecuteSqlCommand",
+        "file": "input.cs",
+        "linenumber": "25",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "IDbSet",
+        "file": "input.cs",
+        "linenumber": "18",
+        "severity": "warning"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "IDbSet",
+        "file": "input.cs",
+        "linenumber": "19",
+        "severity": "warning"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "ObjectContext",
+        "file": "input.cs",
+        "linenumber": "10",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "SetInitializer",
+        "file": "input.cs",
+        "linenumber": "28",
+        "severity": "critical"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "VirtualNavigationProperty",
+        "file": "input.cs",
+        "linenumber": "56",
+        "severity": "warning"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "blockerType": "VirtualNavigationProperty",
+        "file": "input.cs",
+        "linenumber": "57",
+        "severity": "warning"
+      },
+      "count": 1
+    }
+  ],
+  "ef_objectcontext_usages": [
+    {
+      "cardinality": {
+        "explanation": "Legacy EF6 ObjectContext usage. Migrate to EF Core DbContext.",
+        "filepath": "input.cs",
+        "linenumber": "10"
       },
       "count": 1
     }
@@ -11,8 +163,27 @@
   "ef_set_initializer_usages": [
     {
       "cardinality": {
+        "explanation": "Database initializer usage. EF Core does not support Database.SetInitializer. Migrate to explicitly creating the database.",
         "filepath": "input.cs",
         "linenumber": "28"
+      },
+      "count": 1
+    }
+  ],
+  "ef_virtual_nav_props": [
+    {
+      "cardinality": {
+        "explanation": "Virtual property detected. Check if this is for lazy loading, which requires Microsoft.EntityFrameworkCore.Proxies in EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "56"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "explanation": "Virtual property detected. Check if this is for lazy loading, which requires Microsoft.EntityFrameworkCore.Proxies in EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "57"
       },
       "count": 1
     }

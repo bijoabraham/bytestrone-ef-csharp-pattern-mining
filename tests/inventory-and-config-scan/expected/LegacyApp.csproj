@@ -1,0 +1,5 @@
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Reference Include="EntityFramework, Version=6.4.4.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
+  </ItemGroup>
+</Project>

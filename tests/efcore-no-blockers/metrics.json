@@ -1,0 +1,30 @@
+{
+  "ef_dbcontext_usages": [
+    {
+      "cardinality": {
+        "explanation": "EF DbContext usage found. Verify compatibility with EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "12"
+      },
+      "count": 1
+    }
+  ],
+  "ef_dbset_usages": [
+    {
+      "cardinality": {
+        "explanation": "EF DbSet usage found. Verify compatibility with EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "14"
+      },
+      "count": 1
+    },
+    {
+      "cardinality": {
+        "explanation": "EF DbSet usage found. Verify compatibility with EF Core.",
+        "filepath": "input.cs",
+        "linenumber": "15"
+      },
+      "count": 1
+    }
+  ]
+}

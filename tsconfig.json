@@ -5,6 +5,7 @@
     "types": ["@codemod.com/jssg-types"],
     "allowImportingTsExtensions": true,
     "noEmit": true,
+    "skipLibCheck": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
     "strict": true,
@@ -13,5 +14,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true
   },
+  "include": ["scripts/**/*.ts"],
   "exclude": ["tests"]
 }
