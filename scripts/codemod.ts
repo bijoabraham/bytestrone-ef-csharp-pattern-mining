@@ -2,7 +2,8 @@ import type { Codemod } from "codemod:ast-grep";
 import type CSharp from "codemod:ast-grep/langs/csharp";
 import { useMetricAtom } from "codemod:metrics";
 import { acquireLock, getState, setState } from "codemod:workflow";
-import { readdirSync, readFileSync, statSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
+import type { Dirent } from "fs";
 import { join } from "path";
 
 type AstNode = {
@@ -68,24 +69,34 @@ function reportBlocker(blockerType: string, severity: BlockerSeverity, file: str
 const SKIP_DIRS = new Set(["node_modules", "bin", "obj", "dist", "build", ".git", "packages", "TestResults"]);
 
 function walk(dir: string, out: string[]) {
-  let entries: string[];
+  // withFileTypes avoids a separate statSync() per entry (Dirent already
+  // knows isDirectory()) — roughly halves wall-clock time on a large repo.
+  // This matters: the hosted Insights platform enforces a strict per-file
+  // execution budget (observed to be ~200ms) that plain local `codemod
+  // workflow run` does not, so this walk needs to be as cheap as possible.
+  let entries: Dirent[];
   try {
-    entries = readdirSync(dir);
+    entries = readdirSync(dir, { withFileTypes: true });
   } catch {
     return;
   }
   for (const entry of entries) {
-    if (SKIP_DIRS.has(entry)) continue;
-    const full = join(dir, entry);
-    let isDir = false;
-    try {
-      isDir = statSync(full).isDirectory();
-    } catch {
-      continue;
+    if (SKIP_DIRS.has(entry.name)) continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walk(full, out);
+    } else if (isRelevantInventoryFile(entry.name)) {
+      out.push(full);
     }
-    if (isDir) walk(full, out);
-    else out.push(full);
   }
+}
+
+function isRelevantInventoryFile(name: string): boolean {
+  if (name.endsWith(".csproj")) return true;
+  if (name.toLowerCase() === "packages.config") return true;
+  if (name === "App.config" || name === "Web.config") return true;
+  if (/^appsettings(\..+)?\.json$/.test(name)) return true;
+  return false;
 }
 
 function readSafe(file: string): string | null {
@@ -275,6 +286,14 @@ function scanConfigSurface(content: string, file: string) {
 }
 
 function scanInventoryOnce() {
+  // Fast path, no lock: once the scan has finished, every later file sees
+  // this immediately and returns without ever touching acquireLock (which
+  // would otherwise block it for the full duration of someone else's scan).
+  // Only files that start concurrently with the very first one still race
+  // for the lock below — that's an unavoidable minimum, not something this
+  // check can eliminate.
+  if (getState<boolean>("efInventoryScanned")) return;
+
   const release = acquireLock("ef-inventory-scan");
   try {
     if (getState<boolean>("efInventoryScanned")) return;

@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.2.0)
+# bytestrone-ef-csharp-pattern-mining (v1.2.1)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
@@ -100,12 +100,32 @@ structural `gac`/`custom-binary` heuristics when recognized — e.g.
 referenced via `PackageReference`, `packages.config`, or an old-style bare
 `<Reference>`.
 
-## Known limitation
+## Known limitations
 
 The inventory/config scan only fires while at least one `.cs` file exists in
 the target repo (the workflow step is only invoked per matched `.cs` file).
 A `.csproj`-only repo with zero `.cs` files would not trigger it. This is
 believed to be true of essentially every real EF6 codebase.
+
+**Hosted platform per-file execution budget.** The Codemod Insights
+hosted platform enforces a per-file execution budget (observed ~200ms) that
+local `codemod workflow run` does not. On a large repo (e.g. NopCommerce,
+~4,500 files), `scanInventoryOnce()`'s whole-directory `fs` walk took
+625ms-1.5s (highly variable — OS-level I/O noise, not something JS-level
+tuning bounds reliably), and the file that wins the scan lock will exceed
+the hosted budget. Two mitigations are in place: `readdirSync(...,
+{withFileTypes: true})` to avoid a `statSync` per entry, and
+double-checked locking so files arriving after the scan completes see that
+immediately instead of blocking on `acquireLock` — this cut collateral
+damage on NopCommerce from 12 blocked files down to 1 (the lock winner
+itself, which still risks the hosted timeout on large repos). The
+underlying fix — validated but not yet implemented — is to stop doing a
+manual `fs` walk entirely and instead broaden the workflow's `include` glob
+to also match `.csproj`/`packages.config`/`*.config`/`appsettings*.json`
+directly, letting the engine's own native file walker invoke this codemod
+separately per config file (confirmed safe: the C# parser is never touched
+for those files, only `readFileSync`). That distributes the cost across
+many small per-file invocations instead of one large blocking one.
 
 ## Testing
 
