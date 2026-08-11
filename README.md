@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.4.0)
+# bytestrone-ef-csharp-pattern-mining (v1.4.1)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
@@ -116,41 +116,37 @@ that scale with codebase size — e.g. `effort_days = (SUM(loc) / 4000) + ...`
 
 ## Known limitations
 
-**History: why this isn't a lock-guarded whole-repo `fs` walk anymore.**
-Through v1.3.0, `total_projects`/`legacy_csproj_count`/`ef_version`/
-`ef_config_surface`/`ef_dependency_risk` were emitted by a single
-lock-guarded file doing a manual recursive `fs` walk of the whole target
-directory (`scanInventoryOnce()`, since removed). That walk took
-625ms-1.5s locally against NopCommerce (~4,500 files, highly variable —
-OS-level I/O noise). The Codemod Insights **hosted platform enforces a
-per-file execution budget** that local `codemod workflow run` does not, so
-the one file doing that walk would exceed it there even though local runs
-never showed a problem. Confirmed on a real hosted dashboard: those five
-metrics and the three Formula widgets that depend on them all showed empty
-("No results.") or zero, while the ordinary per-file metrics
-(`ef_migration_blocker`, `ef_loc_inventory`) were correct — a clean split
-that traced directly back to which metrics lived inside that one walk.
-v1.2.1 also briefly tried `readdirSync(dir, { withFileTypes: true })` to
-speed the walk up; it crashed the hosted runtime 100% of the time
-(`Dirent.name` came back `undefined` there, despite working under local
-`codemod workflow run` — different LLRT/`fs` build), reverted in v1.2.2.
-Both are a concrete lesson: **local CLI runs are not a reliable proxy for
-hosted-platform behavior** for anything touching `fs`/runtime APIs — verify
-against a real hosted dashboard run before considering a change safe.
+Every matched file (`.cs`, `.csproj`, `packages.config`, `App.config`,
+`Web.config`, `appsettings*.json`) emits its own metrics independently via
+the engine's native `include`-glob per-file dispatch — no shared state, no
+lock, no whole-repo `fs` walk. (An earlier design used a lock-guarded
+whole-repo `fs` walk for the inventory/config/dependency-risk metrics;
+it was replaced in v1.4.0 after failing on the hosted platform's per-file
+execution budget — see git history on `scanInventoryOnce()` for the full
+postmortem if you need it.) A ".csproj-only repo with zero `.cs` files
+wouldn't get scanned" limitation from that earlier design is also gone —
+every matched file now emits its own metrics regardless of what else is in
+the repo.
 
-v1.4.0 removes the walk (and the lock/state coordination it needed)
-entirely, replaced by the `include`-glob-driven per-file dispatch described
-in Architecture above. Verified so far: correct locally (`npm test`,
-`test:inventory-scan`, and a full run against real NopCommerce — all five
-previously-affected metrics present with values matching the pre-v1.3.0
-baseline exactly, e.g. `total_projects`/`legacy_csproj_count` = 31,
-`ef_dependency_risk` = 1067). **Not yet re-verified on the actual hosted
-dashboard** — that's the one environment the previous design's failure only
-ever showed up in, so treat this fix as strongly motivated and
-locally-confirmed, not hosted-confirmed, until someone re-runs it there. As
-a side effect, the old ".csproj-only repo with zero `.cs` files wouldn't
-get scanned" limitation is also gone — every matched file now emits its
-own metrics regardless of what else is in the repo.
+Re-verified locally against real NopCommerce with the published v1.4.0
+package: `total_projects`/`legacy_csproj_count` = 31, `ef_migration_blocker`
+= 270 (64 critical / 206 warning), `ef_dependency_risk` = 1067, zero new
+errors beyond the 9 pre-existing "stream did not contain valid UTF-8" read
+failures (unrelated to this architecture — a small number of files in that
+repo are genuinely not valid UTF-8). **Hosted-platform re-verification is
+still outstanding** — that's the one environment the previous design's
+failure ever actually showed up in; re-index the real Insights dashboard and
+confirm `total_projects`, `legacy_csproj_count`, `ef_version`,
+`ef_config_surface`, `ef_dependency_risk`, and their Formula widgets
+populate before treating this as fully confirmed.
+
+**Local CLI runs are not a reliable proxy for hosted-platform behavior** for
+anything touching `fs`/runtime APIs. v1.2.1 briefly tried
+`readdirSync(dir, { withFileTypes: true })`; it worked locally but crashed
+the hosted runtime 100% of the time (`Dirent.name` came back `undefined`
+there — different LLRT/`fs` build), reverted in v1.2.2. Verify against a
+real hosted dashboard run before considering any `fs`/timing-sensitive
+change safe.
 
 ## Testing
 

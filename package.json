@@ -1,6 +1,6 @@
 {
   "name": "bytestrone-ef-csharp-pattern-mining",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Mining-codemod-for-EF6-Csharp-pattern-analysis",
   "packageManager": "npm@10.x",
   "type": "module",
