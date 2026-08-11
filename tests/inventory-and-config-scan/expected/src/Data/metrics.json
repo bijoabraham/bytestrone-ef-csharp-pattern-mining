@@ -23,7 +23,8 @@
     {
       "cardinality": {
         "file": "src/Data/StoreContext.cs",
-        "loc": "12"
+        "loc": "12",
+        "totalLines": "14"
       },
       "count": 1
     }

@@ -1,9 +1,7 @@
 import type { Codemod } from "codemod:ast-grep";
+import type { SgRoot } from "codemod:ast-grep";
 import type CSharp from "codemod:ast-grep/langs/csharp";
 import { useMetricAtom } from "codemod:metrics";
-import { acquireLock, getState, setState } from "codemod:workflow";
-import { readdirSync, readFileSync, statSync } from "fs";
-import { join } from "path";
 
 type AstNode = {
   kind(): string;
@@ -36,7 +34,7 @@ const dbInterceptionUsages = useMetricAtom("ef_db_interception_usages");
 // --- Unified blocker rollup (one row per legacy-API hit, tagged for dashboard grouping) ---
 const migrationBlocker = useMetricAtom("ef_migration_blocker");
 
-// --- Project inventory (emitted once per repo scan, not per .cs file) ---
+// --- Project inventory (one row per .csproj file) ---
 const totalProjects = useMetricAtom("total_projects");
 const legacyCsprojCount = useMetricAtom("legacy_csproj_count");
 const efVersion = useMetricAtom("ef_version");
@@ -50,79 +48,33 @@ const dependencyRisk = useMetricAtom("ef_dependency_risk");
 // --- Lines of code per file (sizing signal for effort/cost formulas) ---
 const locInventory = useMetricAtom("ef_loc_inventory");
 
-function nonBlankLineCount(source: string): number {
-  let count = 0;
-  for (const line of source.split("\n")) {
-    if (line.trim().length > 0) count++;
+interface LineCounts {
+  totalLines: number;
+  nonBlankLines: number;
+}
+
+function countLines(source: string): LineCounts {
+  // totalLines counts "\n" characters, matching `wc -l` exactly (not
+  // source.split("\n").length, which is off by one: split() counts
+  // segments, i.e. newlines + 1, for every file regardless of whether it
+  // ends with a trailing newline).
+  let totalLines = 0;
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] === "\n") totalLines++;
   }
-  return count;
+
+  let nonBlank = 0;
+  for (const line of source.split("\n")) {
+    if (line.trim().length > 0) nonBlank++;
+  }
+
+  return { totalLines, nonBlankLines: nonBlank };
 }
 
 type BlockerSeverity = "critical" | "warning";
 
 function reportBlocker(blockerType: string, severity: BlockerSeverity, file: string, linenumber: string) {
   migrationBlocker.increment({ blockerType, severity, file, linenumber });
-}
-
-// ---------------------------------------------------------------------------
-// Project inventory + configuration-surface scan.
-//
-// This runs against the whole target directory via plain `fs`, independent of
-// the per-.cs-file AST walk below. It only needs to happen once per workflow
-// run, so the first file invocation to grab the "ef-inventory-scan" lock does
-// the scan; every other (possibly parallel) file invocation is a no-op here.
-// See jssg-runtime-capabilities docs: codemod:metrics has no cross-step or
-// "after all files" hook, so this must stay inside the single js-ast-grep
-// step rather than a separate `run:` step.
-// ---------------------------------------------------------------------------
-
-const SKIP_DIRS = new Set(["node_modules", "bin", "obj", "dist", "build", ".git", "packages", "TestResults"]);
-
-function walk(dir: string, out: string[]) {
-  // Deliberately NOT readdirSync(dir, { withFileTypes: true }): that works
-  // fine under local `codemod workflow run`, but on the hosted Insights
-  // platform's runtime, Dirent.name came back `undefined`, which crashed
-  // join(dir, entry.name) with "Error converting from js 'undefined' into
-  // type 'string'" and failed 100% of files. Plain readdirSync + statSync
-  // is slower but is the version actually verified working on both
-  // local and hosted runtimes.
-  let entries: string[];
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (SKIP_DIRS.has(entry)) continue;
-    const full = join(dir, entry);
-    let isDir = false;
-    try {
-      isDir = statSync(full).isDirectory();
-    } catch {
-      continue;
-    }
-    if (isDir) {
-      walk(full, out);
-    } else if (isRelevantInventoryFile(entry)) {
-      out.push(full);
-    }
-  }
-}
-
-function isRelevantInventoryFile(name: string): boolean {
-  if (name.endsWith(".csproj")) return true;
-  if (name.toLowerCase() === "packages.config") return true;
-  if (name === "App.config" || name === "Web.config") return true;
-  if (/^appsettings(\..+)?\.json$/.test(name)) return true;
-  return false;
-}
-
-function readSafe(file: string): string | null {
-  try {
-    return readFileSync(file, "utf-8");
-  } catch {
-    return null;
-  }
 }
 
 function isSdkStyleCsproj(content: string): boolean {
@@ -157,13 +109,12 @@ function scanPackagesConfigEfVersion(content: string, file: string) {
 //
 // Compatibility knowledge base adapted from the community `dotnet-nuget-
 // dependency-mining` package's shared/nuget-compatibility.ts, retargeted at
-// EF6-to-EF-Core-8 migrations. Kept as plain regex over raw file text (like
-// the rest of this file's inventory scan) rather than a dedicated `language:
-// "xml"` js-ast-grep step: on this platform, `language: "xml"` requires the
-// engine to dynamically fetch and register a tree-sitter grammar at runtime,
-// which was observed to fail outright on Windows (parser registration denied
-// by the OS) — a fragility this avoids entirely by never touching the XML
-// parser.
+// EF6-to-EF-Core-8 migrations. Kept as plain regex over raw file text rather
+// than a dedicated `language: "xml"` js-ast-grep step: on this platform,
+// `language: "xml"` requires the engine to dynamically fetch and register a
+// tree-sitter grammar at runtime, which was observed to fail outright on
+// Windows (parser registration denied by the OS) — a fragility this avoids
+// entirely by never touching the XML parser.
 // ---------------------------------------------------------------------------
 
 type RiskTier = "supported" | "requires-upgrade" | "deprecated" | "unsupported" | "custom-binary" | "gac";
@@ -303,56 +254,21 @@ function scanConfigSurface(content: string, file: string) {
   }
 }
 
-function scanInventoryOnce() {
-  // Fast path, no lock: once the scan has finished, every later file sees
-  // this immediately and returns without ever touching acquireLock (which
-  // would otherwise block it for the full duration of someone else's scan).
-  // Only files that start concurrently with the very first one still race
-  // for the lock below — that's an unavoidable minimum, not something this
-  // check can eliminate.
-  if (getState<boolean>("efInventoryScanned")) return;
-
-  const release = acquireLock("ef-inventory-scan");
-  try {
-    if (getState<boolean>("efInventoryScanned")) return;
-    setState("efInventoryScanned", true);
-
-    const files: string[] = [];
-    walk(".", files);
-
-    for (const file of files) {
-      if (file.endsWith(".csproj")) {
-        totalProjects.increment({ file });
-        const content = readSafe(file);
-        if (!content) continue;
-        if (!isSdkStyleCsproj(content)) {
-          legacyCsprojCount.increment({ file });
-        }
-        scanCsprojEfVersion(content, file);
-        scanCsprojDependencies(content, file);
-      } else if (/(^|[\\/])packages\.config$/.test(file)) {
-        const content = readSafe(file);
-        if (content) {
-          scanPackagesConfigEfVersion(content, file);
-          scanPackagesConfigDependencies(content, file);
-        }
-      } else if (/(^|[\\/])(App|Web)\.config$/.test(file) || /appsettings(\..+)?\.json$/.test(file)) {
-        const content = readSafe(file);
-        if (content) scanConfigSurface(content, file);
-      }
-    }
-  } finally {
-    release();
-  }
+function isPackagesConfig(filepath: string): boolean {
+  return /(^|[\\/])packages\.config$/i.test(filepath);
 }
 
-const codemod: Codemod<CSharp> = async (root) => {
-  scanInventoryOnce();
+function isAppOrWebConfig(filepath: string): boolean {
+  return /(^|[\\/])(App|Web)\.config$/.test(filepath) || /appsettings(\..+)?\.json$/.test(filepath);
+}
 
-  const filepath = root.relativeFilename();
-  if (!filepath.endsWith(".cs")) return null;
-
-  locInventory.increment({ file: filepath, loc: String(nonBlankLineCount(root.source())) });
+function scanCsFile(root: SgRoot<CSharp>, filepath: string) {
+  const lineCounts = countLines(root.source());
+  locInventory.increment({
+    file: filepath,
+    loc: String(lineCounts.nonBlankLines),
+    totalLines: String(lineCounts.totalLines),
+  });
 
   const rootNode = root.root();
 
@@ -429,6 +345,56 @@ const codemod: Codemod<CSharp> = async (root) => {
     const ln = lineNumber(node);
     dbInterceptionUsages.increment({ filepath, linenumber: ln, explanation: "Legacy DbInterception usage. Migrate to EF Core Interceptors." });
     reportBlocker("DbInterception", "critical", filepath, ln);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Entry point. `workflow.yaml`'s include glob matches **/*.cs *and*
+// **/*.csproj / packages.config / App.config / Web.config /
+// appsettings*.json under the same `language: "csharp"` step — the C#
+// parser is never touched for the non-.cs files (only root.source(), the
+// raw text), which is safe (verified: the engine invokes the codemod
+// function per matched file regardless of whether its content parses as
+// C#). This replaces an earlier design where a single lock-guarded file did
+// a manual whole-repo `fs` walk to find these same files: that walk (625ms-
+// 1.5s locally against a ~4,500 file repo) exceeded the hosted Insights
+// platform's per-file execution budget, so total_projects/legacy_csproj_
+// count/ef_version/ef_config_surface/ef_dependency_risk never got emitted
+// there even though the same package worked fine via local `codemod
+// workflow run`. Letting the engine's own native per-file walker invoke
+// this codemod separately per config file spreads that cost across many
+// small, independent invocations instead of one large blocking one.
+// ---------------------------------------------------------------------------
+
+const codemod: Codemod<CSharp> = async (root) => {
+  const filepath = root.relativeFilename();
+
+  if (filepath.endsWith(".cs")) {
+    scanCsFile(root, filepath);
+    return null;
+  }
+
+  const content = root.source();
+
+  if (filepath.endsWith(".csproj")) {
+    totalProjects.increment({ file: filepath });
+    if (!isSdkStyleCsproj(content)) {
+      legacyCsprojCount.increment({ file: filepath });
+    }
+    scanCsprojEfVersion(content, filepath);
+    scanCsprojDependencies(content, filepath);
+    return null;
+  }
+
+  if (isPackagesConfig(filepath)) {
+    scanPackagesConfigEfVersion(content, filepath);
+    scanPackagesConfigDependencies(content, filepath);
+    return null;
+  }
+
+  if (isAppOrWebConfig(filepath)) {
+    scanConfigSurface(content, filepath);
+    return null;
   }
 
   return null;

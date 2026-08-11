@@ -4,21 +4,29 @@ version: "1"
 
 nodes:
   - id: mine-csharp-ef-patterns
-    name: "Mine C# source files for EF6 API patterns, blockers, LOC, and entity usage"
+    name: "Mine C# source, project, and config files for EF6 patterns, inventory, and dependency risk"
     type: automatic
     steps:
-      - name: "Scan all C# source files for EF6 patterns and accumulate metrics in shared state"
+      - name: "Scan .cs/.csproj/packages.config/App.config/Web.config/appsettings*.json and emit metrics per file"
         js-ast-grep:
           js_file: scripts/codemod.ts
           base_path: "."
           language: "csharp"
           include:
             - "**/*.cs"
+            - "**/*.csproj"
+            - "**/packages.config"
+            - "**/App.config"
+            - "**/Web.config"
+            - "**/appsettings*.json"
           exclude:
             - "**/node_modules/**"
             - "**/bin/**"
             - "**/obj/**"
             - "**/dist/**"
+            - "**/build/**"
             - "**/Migrations/**"
+            - "**/packages/**"
+            - "**/TestResults/**"
 
 

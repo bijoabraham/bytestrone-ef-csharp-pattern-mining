@@ -3,7 +3,8 @@
     {
       "cardinality": {
         "file": "input.cs",
-        "loc": "32"
+        "loc": "32",
+        "totalLines": "38"
       },
       "count": 1
     }

@@ -71,7 +71,8 @@
     {
       "cardinality": {
         "file": "input.cs",
-        "loc": "51"
+        "loc": "51",
+        "totalLines": "59"
       },
       "count": 1
     }

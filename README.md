@@ -1,4 +1,4 @@
-# bytestrone-ef-csharp-pattern-mining (v1.3.0)
+# bytestrone-ef-csharp-pattern-mining (v1.4.0)
 
 Read-only EF6-to-EF-Core migration mining codemod. Scans a .NET repository
 and emits [Codemod Insights](https://docs.codemod.com/platform/insights)
@@ -6,13 +6,20 @@ metrics — no source files are ever modified.
 
 ## Architecture
 
-One workflow node, one `js-ast-grep` step (`scripts/codemod.ts`), scoped to
-`**/*.cs`. Everything below runs inside that single step, because
-`codemod:metrics` (`useMetricAtom`) is only available inside a `js-ast-grep`
-step's per-file execution — it is not available in a separate `run:`/
-`jssg exec` step. That constraint is why inventory/config scanning happens
-via a lock-guarded one-time `fs` walk inside the same step, rather than a
-second step (see comments in `scripts/codemod.ts`).
+One workflow node, one `js-ast-grep` step (`scripts/codemod.ts`), `language:
+"csharp"`. The `include` glob matches `**/*.cs` **and** `**/*.csproj`,
+`packages.config`, `App.config`, `Web.config`, `appsettings*.json` — the
+engine's own native file walker invokes this codemod separately for each
+matched file, regardless of type. The C# parser is never touched for the
+non-.cs files (confirmed safe: the engine happily invokes the codemod
+function for them without erroring); only `root.source()` (raw text) is
+used, which is all the `.csproj`/config parsing needs.
+
+Every file emits its own metrics independently — there is no shared state,
+no lock, no whole-repo `fs` walk. This is the second design for the
+inventory/config/dependency-risk metrics; see [Known
+limitations](#known-limitations) for why the first one (a lock-guarded
+whole-repo `fs` walk on one file's invocation) had to be replaced.
 
 ## Emitted metrics
 
@@ -47,7 +54,7 @@ Use this metric for a single "all blockers" table or timeseries widget,
 grouped/filtered by `blockerType` or `severity`. Use the per-pattern metrics
 above for detail widgets on one specific pattern.
 
-### Project inventory (emitted once per scan, cardinality varies per metric)
+### Project inventory (one row per matched file, cardinality varies per metric)
 
 | Metric | Cardinality | Notes |
 | --- | --- | --- |
@@ -109,43 +116,41 @@ that scale with codebase size — e.g. `effort_days = (SUM(loc) / 4000) + ...`
 
 ## Known limitations
 
-The inventory/config scan only fires while at least one `.cs` file exists in
-the target repo (the workflow step is only invoked per matched `.cs` file).
-A `.csproj`-only repo with zero `.cs` files would not trigger it. This is
-believed to be true of essentially every real EF6 codebase.
+**History: why this isn't a lock-guarded whole-repo `fs` walk anymore.**
+Through v1.3.0, `total_projects`/`legacy_csproj_count`/`ef_version`/
+`ef_config_surface`/`ef_dependency_risk` were emitted by a single
+lock-guarded file doing a manual recursive `fs` walk of the whole target
+directory (`scanInventoryOnce()`, since removed). That walk took
+625ms-1.5s locally against NopCommerce (~4,500 files, highly variable —
+OS-level I/O noise). The Codemod Insights **hosted platform enforces a
+per-file execution budget** that local `codemod workflow run` does not, so
+the one file doing that walk would exceed it there even though local runs
+never showed a problem. Confirmed on a real hosted dashboard: those five
+metrics and the three Formula widgets that depend on them all showed empty
+("No results.") or zero, while the ordinary per-file metrics
+(`ef_migration_blocker`, `ef_loc_inventory`) were correct — a clean split
+that traced directly back to which metrics lived inside that one walk.
+v1.2.1 also briefly tried `readdirSync(dir, { withFileTypes: true })` to
+speed the walk up; it crashed the hosted runtime 100% of the time
+(`Dirent.name` came back `undefined` there, despite working under local
+`codemod workflow run` — different LLRT/`fs` build), reverted in v1.2.2.
+Both are a concrete lesson: **local CLI runs are not a reliable proxy for
+hosted-platform behavior** for anything touching `fs`/runtime APIs — verify
+against a real hosted dashboard run before considering a change safe.
 
-**Hosted platform per-file execution budget.** The Codemod Insights
-hosted platform enforces a per-file execution budget (observed ~200ms) that
-local `codemod workflow run` does not. On a large repo (e.g. NopCommerce,
-~4,500 files), `scanInventoryOnce()`'s whole-directory `fs` walk took
-625ms-1.5s locally (highly variable — OS-level I/O noise, not something
-JS-level tuning bounds reliably), and the file that wins the scan lock
-will exceed the hosted budget. Double-checked locking is in place so files
-arriving after the scan completes see that immediately instead of blocking
-on `acquireLock` — this cut collateral damage on NopCommerce from 12
-blocked files down to 1 (the lock winner itself, which still risks the
-hosted timeout on large repos).
-
-**`readdirSync(dir, { withFileTypes: true })` is deliberately NOT used**,
-even though it avoids a `statSync` call per entry and is faster locally.
-v1.2.1 shipped it briefly and it crashed the hosted platform's runtime
-100% of the time — `Dirent.name` came back `undefined` there (works fine
-under local `codemod workflow run`, which uses a different LLRT/`fs` build
-than the hosted execution environment), producing `Error converting from
-js 'undefined' into type 'string'` inside `join(dir, entry.name)` for
-every single file. Reverted in v1.2.2. This is a concrete example of local
-CLI runs not being a reliable proxy for hosted-platform behavior — verify
-any `fs`/runtime API change against a real hosted dashboard run, not just
-`codemod workflow run`, before considering it safe.
-
-The underlying fix for the timeout risk — validated but not yet
-implemented — is to stop doing a manual `fs` walk entirely and instead
-broaden the workflow's `include` glob to also match
-`.csproj`/`packages.config`/`*.config`/`appsettings*.json` directly,
-letting the engine's own native file walker invoke this codemod separately
-per config file (confirmed safe: the C# parser is never touched for those
-files, only `readFileSync`). That distributes the cost across many small
-per-file invocations instead of one large blocking one.
+v1.4.0 removes the walk (and the lock/state coordination it needed)
+entirely, replaced by the `include`-glob-driven per-file dispatch described
+in Architecture above. Verified so far: correct locally (`npm test`,
+`test:inventory-scan`, and a full run against real NopCommerce — all five
+previously-affected metrics present with values matching the pre-v1.3.0
+baseline exactly, e.g. `total_projects`/`legacy_csproj_count` = 31,
+`ef_dependency_risk` = 1067). **Not yet re-verified on the actual hosted
+dashboard** — that's the one environment the previous design's failure only
+ever showed up in, so treat this fix as strongly motivated and
+locally-confirmed, not hosted-confirmed, until someone re-runs it there. As
+a side effect, the old ".csproj-only repo with zero `.cs` files wouldn't
+get scanned" limitation is also gone — every matched file now emits its
+own metrics regardless of what else is in the repo.
 
 ## Testing
 
@@ -157,12 +162,17 @@ npm run check-types
 `npm test` runs both `codemod jssg test` (per-pattern and blocker-detection
 snapshots under `tests/`) and `test:inventory-scan`
 (`scripts/verify-inventory-scan.mjs`), a real `codemod workflow run` against
-`tests/inventory-and-config-scan/input`. The second one is necessary because
-`codemod jssg test` sandboxes each fixture file in isolation and cannot
-exercise the whole-directory `fs` walk the inventory/config scan depends on
-— see `tests/inventory-and-config-scan/README.md` for details. Run
-`test:inventory-scan` explicitly whenever you touch `scanInventoryOnce()` or
-its helpers.
+`tests/inventory-and-config-scan/input`. Each file's metrics are emitted
+independently now (no shared state to worry about), but `codemod jssg
+test`'s directory-fixture snapshotting only ever captured metrics.json next
+to the `.cs` file in this fixture, not next to the `.csproj`/config files
+tested alongside it — observed both before and after the v1.4.0 rewrite, so
+it's a test-harness quirk rather than anything about the scan design. The
+real `codemod workflow run` in `test:inventory-scan` is what actually
+verifies the `.csproj`/`packages.config`/`App.config`/`appsettings.json`
+metrics; run it explicitly whenever you touch that part of
+`scripts/codemod.ts` — see `tests/inventory-and-config-scan/README.md` for
+details.
 
 `codemod jssg test`'s directory-fixture discovery only looks one level deep
 under `./tests` — a case directory needs `input.*`/`expected.*` (or
